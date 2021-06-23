@@ -1,0 +1,24 @@
+import kivy
+from kivy.app import App
+from kivy.uix.label import Label
+import pymysql
+
+
+class UygulamaApp(App):
+    db = pymysql.connect('database-1.*****.us-east-1.rds.amazonaws.com', 'admin', '12345678')
+    cursor = db.cursor()
+    cursor.execute("select version()")
+    data = cursor.fetchone()
+
+    sql1 = '''use deneme'''
+    cursor.execute(sql1)
+    sql2 = '''select * from person'''
+    cursor.execute(sql2)
+    data1 = cursor.fetchall()
+
+    def build(self):
+        return Label(text=str(UygulamaApp.data1))
+
+
+if __name__ == "__main__":
+    UygulamaApp().run()
