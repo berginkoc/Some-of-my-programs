@@ -1,0 +1,971 @@
+from binance.client import Client
+from binance.exceptions import BinanceAPIException, BinanceOrderException
+import json
+import pandas as pd
+import numpy as np
+import datetime as dt
+import requests
+import tkinter as tk
+from tkinter import *
+from functools import partial
+import multitimer
+from tkinter import messagebox
+import time
+from datetime import date, datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
+import sqlite3
+import os
+
+root = tk.Tk()
+
+class sabit(object):
+    api_key = "***Key***"
+    api_secret = "*** Password ***"
+    url = 'https://api.binance.{}/api'
+    #Veri tabanı dosya adı
+    dbad = "{}.sqlite".format("db")
+    #Başlangıç Saati:
+    saat = dt.time(0, 0, 0)
+    # Standart Süreler:
+    ssure = ['', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
+    snsure = {'1m': 60, "3m": 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '2h': 7200, '4h': 14400, '6h': 21600,
+              '8h': 28800,
+              '12h': 43200, '1d': 86400}
+    # Süre uzunlukları(sn):
+    ssures = {'1m': 60, '3m': 180, '5m': 300, '15m': 1500, '30m': 3000, '1h': 6000, '2h': 12000, '4h': 24000,
+              '6h': 36000,
+              '8h': 48000, '12h': 72000, '1d': 144000, '3d': 432000, '1w': 1008000, '1M': 4320000}
+    # Hazır Katsayılar:
+    hktslst = ['15m-1', '15m-2', '15m-3', '4h-1', '15m-4']
+    hkts = {'15m-1': ["BNBUSDT", 0.2, 0.2, 3, "l", -1, 0.5, 9, "4h", 5, "ohlc4", 0, 0, "15m", 0, 0, 14, "hlc3", 0, 0, 3,
+                      0.2, 0.2, 5, 0.195, 0, 0, 0, 0, 0],
+            '15m-2': ["BNBUSDT", 0.2, 0.2, 3, "l", -1, 0.5, 9, "4h", 5, "ohlc4", 0, 0, "15m", 0, 0, 14, "hlc3", 0, 0, 3,
+                      0.2, 0.2, 5, 0.0195, 0, -10, -100, 0, -100],
+            '15m-3': ["BNBUSDT", 0.2, 0.2, 3, "l", -1, 0.5, 9, "1h", 3, "ohlc4", 0, 0, "15m", 0, 0, 14, "hlc3", 0, 0, 3,
+                      -2, -2, 5, -2, -0.05, 0, -10, 0, 0],
+            '4h-1': ["BNBUSDT", 0, 0, 3, "l", 0, 0, 5, "1d", 5, "ohlc4", 0, 0, "4h", 0.3, 0.3, 7, "hlc3", 0, 0, 3,
+                     -2, -2, 5, -2, 0, 0, -10, 0, 0],
+            '15m-4': ["BNBUSDT", 0, 0, 3, "l", -1, 1, 9, "2h", 5, "ohlc4", -10, -10, "15m", 0, 0, 14, "hlc3", 0, 0, 3,
+                      0, 0, 5, 0.01, 0, 0, -20, -1, -1]
+            }
+             vsay = 200  # İşleme alınan veri sayısı
+    # Coin Türleri:
+    coin = ['BTCUSDT',
+            'ADAUSDT',
+            'ETHUSDT',
+            'BNBUSDT',
+            'DOTUSDT',
+            'XRPUSDT',
+            'LTCUSDT',
+            'XLMUSDT',
+            'LINKUSDT',
+            'FTMUSDT',
+            'MATICUSDT',
+            'FIOUSDT',
+            'USDCUSDT',
+            'UNIUSDT',
+            'SUSHIUSDT',
+            'DOGEUSDT',
+            'BCHUSDT',
+            'EOSUSDT',
+            'XEMUSDT',
+            'EGLDUSDT',
+            'MTLUSDT',
+            'SXPUSDT',
+            'EURUSDT',
+            'ALGOUSDT',
+            'SOLUSDT',
+            '1INCHUSDT',
+            'ATOMUSDT',
+            'FILUSDT',
+            'UNFIUSDT',
+            'TRXUSDT',
+            'HIVEUSDT',
+            'IOSTUSDT',
+            'CAKEUSDT',
+            'VETUSDT',
+            'GRTUSDT',
+            'AAVEUSDT',
+            'XVSUSDT',
+            'ONTUSDT',
+            'RVNUSDT',
+            'REEFUSDT',
+            'AVAXUSDT',
+            'NEOUSDT',
+            'CHZUSDT',
+            'CTXCUSDT',
+            'DASHUSDT',
+            'XTZUSDT',
+            'LUNAUSDT',
+            'IOTAUSDT',
+            'CELRUSDT',
+            'GBPUSDT',
+            'ALPHAUSDT',
+            'DODOUSDT',
+            'ETCUSDT',
+            'SRMUSDT',
+            'TFUELUSDT',
+            'MITHUSDT',
+            'RENUSDT',
+            'XMRUSDT',
+            'ANKRUSDT',
+            'CRVUSDT',
+            'RSRUSDT',
+            'BANDUSDT',
+            'ZILUSDT',
+            'ZECUSDT',
+            'YFIUSDT',
+            'LITUSDT',
+            'NEARUSDT',
+            'FETUSDT',
+            'KSMUSDT',
+            'SFPUSDT',
+            'SUNUSDT',
+            'THETAUSDT',
+            'BTTUSDT',
+            'BATUSDT',
+            'ICXUSDT',
+            'COMPUSDT',
+            'COTIUSDT',
+            'OGNUSDT',
+            'ENJUSDT',
+            'SNXUSDT',
+            'MFTUSDT',
+            'FTTUSDT',
+            'QTUMUSDT',
+            'HOTUSDT',
+            'OMGUSDT',
+            'TOMOUSDT',
+            'WRXUSDT',
+            'OCEANUSDT',
+            'RUNEUSDT',
+            'BTCSTUSDT',
+            'NPXSUSDT',
+            'STORJUSDT',
+            'ZRXUSDT',
+            'KAVAUSDT',
+            'AUDUSDT',
+            'TUSDUSDT',
+            'HARDUSDT',
+            'AIONUSDT',
+            'BLZUSDT',
+            'ONEUSDT',
+            'BTCBUSD',
+            'BUSDUSDT',
+            'ETHBUSD',
+            'ADABUSD',
+            'BNBBUSD',
+            'DOTBUSD',
+            'CAKEBUSD',
+            'FIOBUSD',
+            'XLMBUSD',
+            'BAKEBUSD',
+            'USDCBUSD',
+            'XRPBUSD',
+            'LTCBUSD',
+            'LINKBUSD',
+            'EURBUSD',
+            'MATICBUSD',
+            'EGLDBUSD',
+            'EOSBUSD',
+            ]
+    # Coin Türleri(Tek Tek):
+    coint = {'BTCUSDT':['BTC','USDT'],
+                'ADAUSDT':['ADA','USDT'],
+                'ETHUSDT':['ETH','USDT'],
+                'BNBUSDT':['BNB','USDT'],
+                'BUSDUSDT':['BUSD','USDT'],
+                'DOTUSDT':['DOT','USDT'],
+                'XRPUSDT':['XRP','USDT'],
+                'LTCUSDT':['LTC','USDT'],
+                'XLMUSDT':['XLM','USDT'],
+                'LINKUSDT':['LINK','USDT'],
+                'FTMUSDT':['FTM','USDT'],
+                'MATICUSDT':['MATIC','USDT'],
+                'FIOUSDT':['FIO','USDT'],
+                'USDCUSDT':['USDC','USDT'],
+                'UNIUSDT':['UNI','USDT'],
+                'SUSHIUSDT':['SUSHI','USDT'],
+                'DOGEUSDT':['DOGE','USDT'],
+                'BCHUSDT':['BCH','USDT'],
+                'EOSUSDT':['EOS','USDT'],
+                'XEMUSDT':['XEM','USDT'],
+                'EGLDUSDT':['EGLD','USDT'],
+                'MTLUSDT':['MTL','USDT'],
+                'SXPUSDT':['SXP','USDT'],
+                'EURUSDT':['EUR','USDT'],
+                'ALGOUSDT':['ALGO','USDT'],
+                'SOLUSDT':['SOL','USDT'],
+                '1INCHUSDT':['1INCH','USDT'],
+                'ATOMUSDT':['ATOM','USDT'],
+                'FILUSDT':['FIL','USDT'],
+                'UNFIUSDT':['UNFI','USDT'],
+                'TRXUSDT':['TRX','USDT'],
+                'HIVEUSDT':['HIVE','USDT'],
+                'IOSTUSDT':['IOST','USDT'],
+                'CAKEUSDT':['CAKE','USDT'],
+                'VETUSDT':['VET','USDT'],
+                'GRTUSDT':['GRT','USDT'],
+                'AAVEUSDT':['AAVE','USDT'],
+                'XVSUSDT':['XVS','USDT'],
+                'ONTUSDT':['ONT','USDT'],
+                'RVNUSDT':['RVN','USDT'],
+                'BTCUPUSDT':['BTCUP','USDT'],
+                'REEFUSDT':['REEF','USDT'],
+                'BTCDOWNUSDT':['BTCDOWN','USDT'],
+                'AVAXUSDT':['AVAX','USDT'],
+                'NEOUSDT':['NEO','USDT'],
+                'ADAUPUSDT':['ADAUP','USDT'],
+                'CHZUSDT':['CHZ','USDT'],
+                'ETHUPUSDT':['ETHUP','USDT'],
+                'CTXCUSDT':['CTXC','USDT'],
+                'DASHUSDT':['DASH','USDT'],
+                'XTZUSDT':['XTZ','USDT'],
+                'LUNAUSDT':['LUNA','USDT'],
+                'IOTAUSDT':['IOTA','USDT'],
+                'CELRUSDT':['CELR','USDT'],
+                'GBPUSDT':['GBP','USDT'],
+                'ALPHAUSDT':['ALPHA','USDT'],
+                'DODOUSDT':['DODO','USDT'],
+                'ETCUSDT':['ETC','USDT'],
+                'SRMUSDT':['SRM','USDT'],
+                'TFUELUSDT':['TFUEL','USDT'],
+                'MITHUSDT':['MITH','USDT'],
+                'RENUSDT':['REN','USDT'],
+                'XMRUSDT':['XMR','USDT'],
+                'ANKRUSDT':['ANKR','USDT'],
+                'CRVUSDT':['CRV','USDT'],
+                'ETHDOWNUSDT':['ETHDOWN','USDT'],
+                'RSRUSDT':['RSR','USDT'],
+                'BANDUSDT':['BAND','USDT'],
+                'USDTTRY':['USDT','TRY'],
+                'ZILUSDT':['ZIL','USDT'],
+                'ZECUSDT':['ZEC','USDT'],
+                'YFIUSDT':['YFI','USDT'],
+                'LITUSDT':['LIT','USDT'],
+                'USDTDAI':['USDT','DAI'],
+                'NEARUSDT':['NEAR','USDT'],
+                'ADADOWNUSDT':['ADADOWN','USDT'],
+                'FETUSDT':['FET','USDT'],
+                'KSMUSDT':['KSM','USDT'],
+                'SFPUSDT':['SFP','USDT'],
+                'SUNUSDT':['SUN','USDT'],
+                'THETAUSDT':['THETA','USDT'],
+                'BTTUSDT':['BTT','USDT'],
+                'BATUSDT':['BAT','USDT'],
+                'ICXUSDT':['ICX','USDT'],
+                'COMPUSDT':['COMP','USDT'],
+                'COTIUSDT':['COTI','USDT'],
+                'OGNUSDT':['OGN','USDT'],
+                'ENJUSDT':['ENJ','USDT'],
+                'SNXUSDT':['SNX','USDT'],
+                'BNBUPUSDT':['BNBUP','USDT'],
+                'MFTUSDT':['MFT','USDT'],
+                'FTTUSDT':['FTT','USDT'],
+                'QTUMUSDT':['QTUM','USDT'],
+                'HOTUSDT':['HOT','USDT'],
+                'OMGUSDT':['OMG','USDT'],
+                'XTZUPUSDT':['XTZUP','USDT'],
+                'TOMOUSDT':['TOMO','USDT'],
+                'WRXUSDT':['WRX','USDT'],
+                'OCEANUSDT':['OCEAN','USDT'],
+                'RUNEUSDT':['RUNE','USDT'],
+                'BTCSTUSDT':['BTCST','USDT'],
+                'NPXSUSDT':['NPXS','USDT'],
+                'STORJUSDT':['STORJ','USDT'],
+                'ZRXUSDT':['ZRX','USDT'],
+                'KAVAUSDT':['KAVA','USDT'],
+                'UNIUPUSDT':['UNIUP','USDT'],
+                'AUDUSDT':['AUD','USDT'],
+                'TUSDUSDT':['TUSD','USDT'],
+                'HARDUSDT':['HARD','USDT'],
+                'DOTUPUSDT':['DOTUP','USDT'],
+                'AIONUSDT':['AION','USDT'],
+                'BLZUSDT':['BLZ','USDT'],
+                'ONEUSDT':['ONE','USDT'],
+                'BTCBUSD':['BTC','BUSD'],
+                'ETHBUSD':['ETH','BUSD'],
+                'ADABUSD':['ADA','BUSD'],
+                'BNBBUSD':['BNB','BUSD'],
+                'DOTBUSD':['DOT','BUSD'],
+                'CAKEBUSD':['CAKE','BUSD'],
+                'FIOBUSD':['FIO','BUSD'],
+                'XLMBUSD':['XLM','BUSD'],
+                'BAKEBUSD':['BAKE','BUSD'],
+                'USDCBUSD':['USDC','BUSD'],
+                'XRPBUSD':['XRP','BUSD'],
+                'LTCBUSD':['LTC','BUSD'],
+                'LINKBUSD':['LINK','BUSD'],
+                'EURBUSD':['EUR','BUSD'],
+                'MATICBUSD':['MATIC','BUSD'],
+                'EGLDBUSD':['EGLD','BUSD'],
+                'EOSBUSD':['EOS','BUSD']}
+    # Veri Kaynakları:
+    kynk = ['', 'Açılış', 'Kapanış', 'Yüksek', 'Düşük', 'hlc3', 'ohlc4']
+    kynkd = {'Açıllış': 'o', 'Kapanış': 'c', 'Yüksek': 'l', 'Düşük': 'l', 'OHLC4': 'ohlc4', 'YDK3': 'hlc3'}
+    # İşlem Yapılan Coin
+    acoin = 'ETHBUSD'
+    acoins1 = 'BNBUSDT'
+
+    # Alım Satım Miktarları:
+    cv1 = 1
+    dv1 = 100
+ 
+ class Alsat(object):
+    def al(sembl, qty):
+        snc = ""
+        try:
+            buy_limit = client.order_market_buy(
+                symbol=sembl,
+                quantity=qty,
+            )
+        except BinanceAPIException as e:
+            # error handling goes here
+            #print(e)
+            snc = e
+        except BinanceOrderException as e:
+            # error handling goes here
+            #print(e)
+            snc = e
+        return snc
+
+    def sat(sembl, qty):
+        snc = ""
+        try:
+            buy_limit = client.create_order(
+                symbol=sembl,
+                side='SELL',
+                type='MARKET',
+                quantity=qty
+            )
+        except BinanceAPIException as e:
+            # error handling goes here
+            snc = e
+        except BinanceOrderException as e:
+            # error handling goes here
+            snc = e
+        return snc
+
+    def satlmt(sembl,qty,prc):
+        snc = ""
+        try:
+            order = client.order_limit_sell(
+                symbol=sembl,
+                quantity=qty,
+                price=prc)
+        except BinanceAPIException as e:
+            # error handling goes here
+            #print(e)
+            snc = e
+        except BinanceOrderException as e:
+            # error handling goes here
+            #print(e)
+            snc = e
+        return snc
+
+    def hesap(Tur):
+        mik = client.get_asset_balance(asset=Tur)
+        return mik
+
+    def emir(Tur):
+        emir = client.get_all_orders(symbol=Tur, limit=100)
+        return emir
+
+    def dstemir(Tur, ID):
+        dst = client.cancel_order(symbol=Tur, orderID=ID)
+        
+class islem(object):
+      def Veriurl(smbl, sre, uzn):
+        veri = []
+        a = 0
+        while a < 6:
+            try:
+                root_url = 'https://api.binance.com/api/v1/klines'
+                symbol = smbl
+                interval = sre
+                url = root_url + '?symbol=' + symbol + '&interval=' + interval
+                veri = json.loads(requests.get(url).text)
+                dff = pd.DataFrame(veri)
+                dff.columns = ['open_time',
+                               'o', 'h', 'l', 'c', 'v',
+                               'close_time', 'qav', 'num_trades',
+                               'taker_base_vol', 'taker_quote_vol', 'ignore']
+                row, col = dff.shape
+                # print("Satir sayısı:",row,"Kolon Sayısı:",col)
+                dff.index = [dt.datetime.fromtimestamp(x / 1000.0) for x in dff.close_time]
+                # dff.drop('close_time', inplace=True, axis=1)
+                dff.drop("qav", inplace=True, axis=1)
+                dff.drop("num_trades", inplace=True, axis=1)
+                dff.drop("taker_base_vol", inplace=True, axis=1)
+                dff.drop("taker_quote_vol", inplace=True, axis=1)
+                dff.drop("ignore", inplace=True, axis=1)
+                data = dff[-uzn:]
+                # print("Son Hamdata:", data.iloc[-1])
+                return data
+            except EXCEPTION as e:
+                text = "Deneme:{}, Hata Kodu:{}".format(a,e)
+                print(text)
+                time.sleep(1)
+                a = a + 1
+        return veri
+        
+    def hlc3(dta):
+        bsla = 1
+        bsla = bsla * -1
+        hlc3 = []
+        for index, row in dta.iterrows():
+            try:
+                hi = float(dta.h[bsla])
+                lo = float(dta.l[bsla])
+                cl = float(dta.c[bsla])
+                top3 = (hi + lo + cl) / 3
+            except:
+                top3 = "NaN"
+            hlc3.append(top3)
+            bsla = bsla - 1
+        hlc3.reverse()
+        return hlc3
+        
+    def wma(dta, t):
+        weights = np.arange(1, (t + 1))
+        wma = dta.rolling(t).apply(lambda ww: np.dot(ww, weights) / weights.sum(), raw=True)
+        return wma
+        def islm(coz1, tttdt, tttsnr, ttosnr, ttodt, coz2, kmsnr, abmdt, abkdt):
+        data = islem.Veriurl(sembol, coz1, sabit.vsay)
+        hlc3 = islem.hlc3(data)
+        # print("hlc3 çekildi")
+        data['hlc3'] = hlc3
+        # print("hlc3 eklendi.")
+        ohlc4 = islem.ohlc4(data)
+        # print("ohlc4 çekildi")
+        data['ohlc4'] = ohlc4
+        # print("ohlc4 eklendi")
+        yaz = islem.ttt(data, 0, tttdt)
+        # print("ttt çekildi")
+        data['ttt'] = yaz
+        # print("ttt eklendi")
+        wmahlc3 = islem.wmahlc3(data, ttodt)
+        # print("wmahlc3 çekildi")
+        data['wmahlc3'] = wmahlc3
+        # print("wmahlc3 eklendi")
+        ttofort = islem.ttofort(data)
+        # print("ttofort çekildi")
+        data['ttofort'] = ttofort
+        # print("ttofort eklendi")
+        abmroc = islem.abmroc(data, abmdt)
+        # print("abmroc çekildi")
+        data['abmroc'] = abmroc
+        # print("abmroc eklendi")
+        abmnkt = islem.wmaohlc4(data, abmdt)
+        # print("abmnkt çekildi")
+        data['abmnkt'] = abmnkt
+        # print("abmnkt eklendi")
+        abmbil = islem.abmbil(data, abmdt, coz2)
+        # print("abmbil çekildi")
+        data['abmbil'] = abmbil
+        # print("abmbil eklendi")
+        # print(data['abmbil'])
+        abmbilr = islem.abmbilr(data, abmdt)
+        # print("abmbilr çekildi")
+        data['abmbilr'] = abmbilr
+        # print("abmbilr eklendi")
+        # print(data['abmbilr'])
+        kum = islem.kumt(data, 0, abkdt)
+        # print("kum çekildi")
+        data['kum'] = kum
+        # print("kum eklendi")
+
+        ttt = indiktr.ttt(data, tttsnr, 1)
+        data['tttd'] = ttt
+        tto = indiktr.tto(data, ttosnr, 1)
+        data['ttod'] = tto
+        kumltf = indiktr.kumltf(data, kmsnr, 1)
+        data['kumd'] = kumltf
+        # data['Sat'] = indk[1]
+        # data['Drm'] = indk[2]
+        # data.to_excel(datatoexcel,sheet_name="ttt")
+        # datatoexcel.save()
+        # print(data.kum)
+        return data
+        
+class indiktr(object):
+      def boolinger(dta, boal):
+        bsla = 1
+        bsla = -1 * bsla
+        blst = []
+        data = dta
+        say = 1
+        for index, row in dta.iterrows():
+            try:
+                h = float(dta.h[bsla])
+                l = float(dta.l[bsla])
+                c = float(dta.c[bsla])
+                nkt = float(dta.bnkt[bsla])
+                bmin = float(dta.bmin[bsla])
+                bmax = float(dta.bmax[bsla])
+                fark = bmax - bmin
+                # print("h:",h,"l:",l,"c:",c,"nkt:",nkt,"bmin:",bmin,"bmax:",bmax)
+                # ---bood---
+                bood = c > nkt
+                # ---booal
+                booald1 = bmin > l
+                booald2 = fark > boal
+                booald3 = h > bmin
+                booal = booald1 and booald2 and booald3
+                # ---boosat
+                boosat = c > bmax
+                snc = [bood, booal, boosat]
+            except:
+                snc = ["NaN", "NaN", "NaN"]
+            bsla = bsla - 1
+            say = say + 1
+            blst.append(snc)
+        blst.reverse()
+        return blst
+     def Senaryo1(conf1, conf2, conf3, conf4, ind1, ind2, ind3, idrm1, drm, val):
+        bdta = islem.Veriurl(conf1, conf2, conf3)
+        hlc3 = islem.hlc3(bdta)
+        bdta['hlc3'] = hlc3
+        data = bdta.hlc3
+        snc = islem.booling(data, ind1, ind2)
+        bdta['bmax'] = snc.bmax
+        bdta['bmin'] = snc.bmin
+        bdta['bnkt'] = snc.bnkt
+        bdrm = indiktr.boolinger(bdta, idrm1)
+        bdta['son_drm'] = bdrm
+        exisim = "{}_{}.xlsx".format("S1",val)
+        if drm == "anlz":
+            try:
+                krr = karar.analz(bdta)
+                data = pd.DataFrame(krr)
+                txt = "{} isimli dosyaya kayıt edildi.".format(exisim)
+                data.to_excel(exisim)
+                messagebox.showinfo("Mesaj!", txt)
+            except:
+                txt = "{} isimli dosya açık!".format(exisim)
+                messagebox.showinfo("Mesaj", txt)
+
+        elif drm == "clstr":
+            return bdta
+            
+            
+            
+class Pencere(object):
+    drm = "albekle"
+    # Komut Ayracı
+    sayrac = "===================="
+# Pencere 4 S1
+    S1 = [
+        [['BNBUSDT', "4h", 100, 1], [20, 2, "hlc3"], [1], ["", "", "", ""], [0, 0, 0, 0, 0.5, ""], ["albekle", ""],
+         ["", "", "", "", "", ""]]
+        ]
+    log_S1 = []
+
+    def pnc4(self):
+        val = 0
+        for i in root.winfo_children():
+            i.destroy()
+        root.title("Boolinger Çalıştır(S1)")
+        q1 = 1
+        root.geometry("600x400")
+        # ---Coin-Türü----
+        coinir = 1
+        coinic = 1
+        coinel = 2
+
+        lbl1 = tk.Label(text="İşlem Yapılacak Coin:").grid(row=coinir, column=coinic, sticky=NE + SW)
+
+        def coinf(value):
+            Pencere.S1[val][3][0] = value
+
+        coinn = StringVar()
+        coinn.set(Pencere.S1[val][0][0])
+        coinnl = tk.OptionMenu(root, coinn, *sabit.coin, command=coinf)
+        coinnl.config(font=('calibri', 10))
+        coinnl['menu'].configure(font=('calibri', 10))
+        coinnl.grid(row=coinir, column=coinic + 1, sticky=N + E + W + S)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][0][0])).grid(row=coinir, column=coinic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="").grid(row=coinir + 1, column=coinic, sticky=NE + SW)
+
+        # ---Coin-Son---
+        # ----Grafik-Çözünürlüğü----
+        grair = coinir + coinel
+        graic = coinic
+        grael = 2
+
+        lbl1 = tk.Label(text="Grafik Çözünürlüğü:").grid(row=grair, column=graic, sticky=NE + SW)
+
+        def surre1f(value):
+            Pencere.S1[val][3][1] = value
+
+        surre1 = StringVar()
+        surre1.set(Pencere.S1[val][0][1])
+        surre1l = tk.OptionMenu(root, surre1, *sabit.ssure, command=surre1f)
+        surre1l.config(font=('calibri', 10))
+        surre1l['menu'].configure(font=('calibri', 10))
+        surre1l.grid(row=grair, column=graic + 1, sticky=N + E + W + S)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][0][1])).grid(row=grair, column=graic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="").grid(row=grair + 1, column=graic, sticky=NE + SW)
+        # ---Çözünürlük-Son---
+        # ---Boolinger Başlangıç---
+        booir = grair + grael
+        booic = graic
+        booel = 5
+
+        lbl1 = tk.Label(text="Boolinger Süre Uzunluğu:").grid(row=booir, column=booic, sticky=NE + SW)
+        boodt = tk.Entry(font=("Helvetica", 10, "bold"), justify='center')
+        boodt.insert(END, str(Pencere.S1[val][1][0]))
+        boodt.grid(row=booir, column=booic + 1, sticky=NE + SW)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][1][0])).grid(row=booir, column=booic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="Boolinger Al Durum Sınırı:").grid(row=booir + 1, column=booic, sticky=NE + SW)
+        booal = tk.Entry(font=("Helvetica", 10, "bold"), justify='center')
+        booal.insert(END, str(Pencere.S1[val][2][0]))
+        booal.grid(row=booir + 1, column=booic + 1, sticky=NE + SW)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][2][0])).grid(row=booir + 1, column=booic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="Boolinger % Sapma:").grid(row=booir + 2, column=booic, sticky=NE + SW)
+        book = tk.Entry(font=("Helvetica", 10, "bold"), justify='center')
+        book.insert(END, str(Pencere.S1[val][1][1]))
+        book.grid(row=booir + 2, column=booic + 1, sticky=NE + SW)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][1][1])).grid(row=booir + 2, column=booic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="Boolinger Veri Kaynağı:").grid(row=booir + 3, column=booic, sticky=NE + SW)
+
+        def fbokynk(value):
+            Pencere.S1[val][3][2] = value
+
+        booky = StringVar()
+        booky.set(str(Pencere.S1[val][1][2]))
+        bookyl = tk.OptionMenu(root, booky, *sabit.kynk, command=fbokynk)
+        bookyl.config(font=('calibri', 10))
+        bookyl['menu'].configure(font=('calibri', 10))
+        bookyl.grid(row=booir + 3, column=booic + 1, sticky=N + E + W + S)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][1][2])).grid(row=booir + 3, column=booic + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="").grid(row=booir + 4, column=booic, sticky=NE + SW)
+        # ---Boolinger-Son---
+        # ---Hazır Sayılar---
+        hzrir = booir + booel
+        hzric = booic
+        hzrel = 4
+
+        lbl1 = tk.Label(text="Hazır Veriler:").grid(row=hzrir, column=hzric, sticky=NE + SW)
+
+        def hzrlste(value):
+            Pencere.S1[val][3][3] = value
+            hzrgtr()
+
+        hlst = StringVar()
+        hlst.set("")
+        hlistl = tk.OptionMenu(root, hlst, *sabit.s1hlst, command=hzrlste)
+        hlistl.config(font=('calibri', 10))
+        hlistl['menu'].configure(font=('calibri', 10))
+        hlistl.grid(row=hzrir, column=hzric + 1, sticky=N + E + W + S)
+        lbl1 = tk.Label(text=Pencere.S1[val][3][3]).grid(row=hzrir, column=hzric + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text=" ").grid(row=hzrir + 1, column=hzric, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="Veri Sayısı:").grid(row=hzrir + 2, column=hzric, sticky=NE + SW)
+        veridt = tk.Entry(font=("Helvetica", 10, "bold"), justify='center')
+        veridt.insert(END, str(Pencere.S1[val][0][2]))
+        veridt.grid(row=hzrir + 2, column=hzric + 1, sticky=NE + SW)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][0][2])).grid(row=hzrir + 2, column=hzric + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="").grid(row=hzrir + 3, column=hzric, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="Alım Miktarı:").grid(row=hzrir + 4, column=hzric, sticky=NE + SW)
+        alm_adt = tk.Entry(font=("Helvetica", 10, "bold"), justify='center')
+        alm_adt.insert(END, str(Pencere.S1[val][4][4]))
+        alm_adt.grid(row=hzrir + 4, column=hzric + 1, sticky=NE + SW)
+        lbl1 = tk.Label(text=str(Pencere.S1[val][4][4])).grid(row=hzrir + 4, column=hzric + 2, sticky=NE + SW)
+
+        lbl1 = tk.Label(text="").grid(row=hzrir + 5, column=hzric, sticky=NE + SW)
+
+        def degal():
+            # Geçerli Hedefler
+            if Pencere.S1[val][3][1] != "":
+                Pencere.S1[val][0][1] = str(Pencere.S1[val][3][1])
+            # Coin Türü:
+            if Pencere.S1[val][3][0] != "":
+                Pencere.S1[val][0][0] = Pencere.S1[val][3][0]
+            # Veri sayısı:
+            Pencere.S1[val][0][2] = int(veridt.get())
+            # Boolinger
+            Pencere.S1[val][1][0] = int(boodt.get())
+            Pencere.S1[val][2][0] = float(booal.get())
+            Pencere.S1[val][1][1] = float(book.get())
+            if Pencere.S1[val][3][2] != "":
+                Pencere.S1[val][0][2] = Pencere.S1[val][3][2]
+            Pencere.S1[val][4][4] = float(alm_adt.get())
+            Pencere.sayfa = "penc2"
+            Pencere.pnc4(self)
+
+        def hzrgtr():
+            vlst = sabit.s1hkts[Pencere.S1[val][3][3]]
+            # Çözünürlük
+            Pencere.S1[val][0][1] = vlst[1]
+            # Coin Türü:
+            Pencere.S1[val][0][0] = vlst[0]
+            # Veri sayısı:
+            Pencere.S1[val][0][2] = vlst[2]
+            # Boolinger
+            Pencere.S1[val][1][0] = vlst[3]
+            Pencere.S1[val][1][1] = vlst[4]
+            Pencere.S1[val][1][2] = vlst[5]
+            Pencere.S1[val][2][0] = vlst[6]
+            Pencere.sayfa = "penc4"
+            Pencere.pnc4(self)
+
+        def timeout():
+            print(Pencere.sayrac)
+            data = senaryo.Senaryo1(*Pencere.S1[val][0], *Pencere.S1[val][1], *Pencere.S1[val][2], "clstr", val)
+            #alsat = karar.nihai(data, Pencere.S1[val][5][0])
+            alsat = Pencere.deneme
+            coin = Pencere.S1[val][0][0]
+            print("Alsat:", alsat)
+            print("Durum:", Pencere.S1[val][5][0])
+            if (alsat == "AL" and Pencere.S1[val][5][0] == "albekle"):
+                fyt = float(data.c[-1])
+                s = client.get_symbol_info(Pencere.S1[val][0][0])
+                minttr = float(s['filters'][0]['minPrice'])
+                minmktr = float(s['filters'][2]['minQty'])
+                mincarp = float(s['filters'][3]['minNotional'])
+                stpsze = float(s['filters'][5]['stepSize'])
+                ref_adt = mincarp / fyt
+                adt = (float(Pencere.S1[val][4][4]) * 0.95) / fyt
+                adtt = round(adt, Pencere.S1[val][0][3])
+                # print("adtt:",adtt,"ref_adt:",ref_adt,"minmktar:",minmktr)
+                print("Ref Alım Adeti:", adtt, "Ref Alış Fiyatı:", fyt)
+                if (adtt >= ref_adt and adtt >= minmktr):
+                    eth = Alsat.hesap(sabit.coint[coin][0])
+                    busd = Alsat.hesap(sabit.coint[coin][1])
+                    als_fyt1 = busd['free']
+                    als_mik1 = eth['free']
+                    dega = Alsat.al(coin, adtt)
+                    if dega == "":
+                        Pencere.S1[val][4][5] = adtt * 0.999
+                        Pencere.S1[val][5][0] = "satbekle"
+                        print("Alım Gönderildi")
+                        eth = Alsat.hesap(sabit.coint[coin][0])
+                        busd = Alsat.hesap(sabit.coint[coin][1])
+                        als_fyt2 = busd['free']
+                        als_mik2 = eth['free']
+                        time.sleep(1)
+                        dpr = float(als_fyt1) - float(als_fyt2)
+                        dq = float(als_mik2) - float(als_mik1)
+                        try:
+                            als_fyt = dpr / dq
+                            als_mik = dq
+                        except:
+                            print("Uyarı!!!: Hesaplamada sorun!!!")
+                            als_fyt = dpr
+                            als_mik = dq
+                        print("Alım Adeti:", als_mik, "Alım Fiyatı:", als_fyt)
+                        Pencere.S1[val][6][2] = als_fyt
+                        Pencere.S1[val][6][1] = als_mik
+                        Pencere.S1[val][6][0] = dt.datetime.now()
+                    else:
+                        print("Uyarı!!!: ALIMDA SORUN!!!")
+                        print(dega)
+                else:
+                    print("Uyarı!!!: Adet Sorunu")
+                    print("Adet:", adtt, "Ref:", ref_adt, "Min:", minmktr)
+
+            elif (alsat == "SAT" and Pencere.S1[val][5][0] == "satbekle"):
+                eth = Alsat.hesap(sabit.coint[coin][0])
+                busd = Alsat.hesap(sabit.coint[coin][1])
+                als_fyts1 = busd['free']
+                als_miks1 = eth['free']
+                stm_adt = round(Pencere.S1[val][4][5], Pencere.S1[val][0][3])
+                dns = Alsat.sat(coin, stm_adt)
+                # print("adtt:",stm_adt)
+                if dns == "":
+                    Pencere.S1[val][5][0] = "albekle"
+                    print("Satış Gönderildi")
+                    time.sleep(1)
+                    eth = Alsat.hesap(sabit.coint[coin][0])
+                    busd = Alsat.hesap(sabit.coint[coin][1])
+                    als_fyts2 = busd['free']
+                    als_miks2 = eth['free']
+                    dpr = float(als_fyts2) - float(als_fyts1)
+                    dq = float(als_miks1) - float(als_miks2)
+                    try:
+                        sts_fyt = dpr / dq
+                        sts_mik = dq
+                    except:
+                        print("Uyarı!!!: Hesaplamada sorun!!!")
+                        sts_fyt = dpr
+                        sts_mik = dq
+                    print("Satış Adeti:", sts_mik, "Satış Fiyatı:", sts_fyt)
+                    Pencere.S1[val][6][3] = sts_fyt
+                    Pencere.S1[val][6][4] = sts_mik
+                    Pencere.S1[val][6][5] = dt.datetime.now()
+                    Pencere.log_S1.append([val, Pencere.S1[val][6]])
+                    islem.sqlyaz("S1", [val, *Pencere.S1[val][6]])
+                    frk = float(Pencere.S1[val][6][2]) - float(Pencere.S1[val][6][3])
+                    Pencere.S1[val][6] = ["", "", "", "", "", ""]
+                    print("Satış Gerçekleştirildi.")
+                else:
+                    print(dns)
+            zmn = dt.datetime.now()
+            # print("Open Time:", sur)
+
+            print("Zaman:", zmn)
+            print(Pencere.sayrac)
+
+        def t_off():
+            print(Pencere.sayrac)
+            timer.stop()
+            coin = Pencere.S1[val][0][0]
+            eth = Alsat.hesap(sabit.coint[coin][0])
+            busd = Alsat.hesap(sabit.coint[coin][1])
+            Pencere.S1[val][4][2] = eth['free']
+            Pencere.S1[val][4][3] = busd['free']
+            print(str(sabit.coint[coin][0]), ":", str(Pencere.S1[val][4][2]))
+            print(str(sabit.coint[coin][1]), ":", str(Pencere.S1[val][4][3]))
+            farkc = float(Pencere.S1[val][4][2]) - float(Pencere.S1[val][4][0])
+            farkd = float(Pencere.S1[val][4][3]) - float(Pencere.S1[val][4][1])
+            print("---------------")
+            print("İlk Durum:",
+                  "Coin:", Pencere.S1[val][4][0], "Dolar:", Pencere.S1[val][4][1])
+            print("Son Durum:",
+                  "Coin:", Pencere.S1[val][4][2], "Dolar:", Pencere.S1[val][4][3])
+            print("Coin farkı:", farkc, "Dolar Farkı:", farkd)
+            Pencere.S1[val][4] = ["", "", 0, 0, Pencere.S1[val][4][4], Pencere.S1[val][4][5]]
+            print("Durdu")
+            print(Pencere.sayrac)
+
+        def t_on():
+            print(Pencere.sayrac)
+            # print(sabit.saat)
+            td = sabit.snsure[Pencere.S1[val][0][1]]
+            adet = 86400 / td
+            # print("Adet:", adet)
+            ekle = dt.timedelta(hours=3, seconds=td)
+            fmt = '%H:%M:%S'
+            suan = dt.datetime.now()
+            suan1 = dt.time(suan.hour, suan.minute, suan.second)
+            for i in range(0, int(adet)):
+                # print("Çarpan:",i)
+                artm = td * i
+                artm1 = dt.timedelta(hours=3, seconds=artm)
+                # print("Artım:",artm1,"Type:",type(artm1))
+                # print("Saat:",sabit.saat,"Type:",type(sabit.saat))
+                hdf = datetime.combine(date.today(), sabit.saat) + dt.timedelta(seconds=artm)
+                # print("Hedef Saat:",hdf)
+                fark = hdf - suan
+                # print("Fark:",fark,"Type:",type(fark))
+                if fark.days >= 0:
+                    # print("Buldu.")
+                    # print("Son Çarpan:",i)
+                    # print("Hedef Saat:", hdf)
+                    break
+            job = zmn_ayar.add_job(sch, 'date', next_run_time=hdf)
+            text = "Sayaç Ayarlandı. Başlangıç Saati:{}".format(hdf)
+            print(text)
+            print(Pencere.sayrac)
+
+        def sch():
+            print(Pencere.sayrac)
+            coin = Pencere.S1[val][0][0]
+            eth = Alsat.hesap(sabit.coint[coin][0])
+            busd = Alsat.hesap(sabit.coint[coin][1])
+            print(sabit.coint[coin][0], ":", eth)
+            print(sabit.coint[coin][1], ":", busd)
+            Pencere.S1[val][4][0] = eth['free']
+            Pencere.S1[val][4][1] = busd['free']
+            timer.start()
+            print("\nBaşladı")
+            print(Pencere.sayrac)
+
+        timer = multitimer.MultiTimer(sabit.snsure[Pencere.S1[val][0][1]], timeout)
+
+        def hesap():
+            print(Pencere.sayrac)
+            coin = Pencere.S1[val][0][0]
+            eth = Alsat.hesap(sabit.coint[coin][0])
+            busd = Alsat.hesap(sabit.coint[coin][1])
+            print(dt.datetime.now())
+            print(eth['asset'], "Miktar:", eth['free'])
+            print(busd['asset'], "Miktar:", busd['free'])
+            print(Pencere.sayrac)
+
+        def al():
+            print(Pencere.sayrac)
+            Pencere.deneme = "AL"
+            timeout()
+            print(Pencere.sayrac)
+
+        def sat():
+            print(Pencere.sayrac)
+            Pencere.deneme = "SAT"
+            timeout()
+            print(Pencere.sayrac)
+
+        def emirler():
+            print(Pencere.sayrac)
+            coin = Pencere.S1[val][0][0]
+            busd = Alsat.hesap(sabit.coint[coin][1])
+            als_fyt1 = float(busd['free'])
+            als_fyt1 = round(als_fyt1, 3)
+            Pencere.S1[val][4][4] = als_fyt1
+            Pencere.pnc4(self)
+            print(Pencere.sayrac)
+
+        def dstemir():
+            print(Pencere.sayrac)
+            print(Pencere.log_S1)
+            print(Pencere.sayrac)
+
+        def analiz():
+            print(Pencere.sayrac)
+            senaryo.Senaryo1(*Pencere.S1[val][0], *Pencere.S1[val][1], *Pencere.S1[val][2], "anlz", val)
+            print("Analiz Yapıldı.")
+            print(Pencere.sayrac)
+
+        def lotsize():
+            print(Pencere.sayrac)
+            print("Coin LotSize")
+            s = client.get_symbol_info(Pencere.S1[val][0][0])
+            print(s['filters'][0]['minPrice'])
+            print(s['filters'][2]['minQty'])
+            print(s['filters'][3]['minNotional'])
+            print(s['filters'][5]['stepSize'])
+            print(Pencere.sayrac)
+
+        lbl = tk.Label(text="     ").grid(row=coinir, column=coinic + 3, sticky=NE + SW)
+
+        butir = coinir
+        butic = coinic + 4
+        butel = 14
+        buton1 = tk.Button(text="Timer On", command=t_on).grid(row=butir, column=butic, sticky=NE + SW)
+        buton1 = tk.Button(text="Timer Off", command=t_off).grid(row=butir + 1, column=butic, sticky=NE + SW)
+        buton1 = tk.Button(text="Fonksiyon", command=timeout).grid(row=butir + 2, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Hesap Gör", command=hesap).grid(row=butir + 3, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Al", command=al).grid(row=butir + 4, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Sat", command=sat).grid(row=butir + 5, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Emirler", command=emirler).grid(row=butir + 6, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Emir Temizle", command=dstemir).grid(row=butir + 7, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Analiz Yazdır", command=analiz).grid(row=butir + 8, column=butic, sticky=NE + SW)
+        buton2 = tk.Button(text="Değerleri Al", command=degal).grid(row=butir + 9, column=butic, sticky=NE + SW)
+        buton = tk.Button(text="Hazır Liste", command=hzrgtr).grid(row=butir + 10, column=butic, sticky=NE + SW)
+        buton = tk.Button(text="Lot Size", command=lotsize).grid(row=butir + 11, column=butic, sticky=NE + SW)
+        buton1 = tk.Button(text="Geri", command=partial(Pencere.pnc1, self)).grid(row=butir + 12, column=butic,
+                                                                                  sticky=NE + SW)
+
+        lbl = tk.Label(text="").grid(row=butir + 13, column=butic, sticky=NE + SW)
+        
+client = Client(sabit.api_key, sabit.api_secret)
+# client.API_URL = sabit.url
+dnm = deneme()
+
+penc = Pencere()
+penc.pnc1()
+root.mainloop()
+if __name__ == '__main__':    
+    pass
+else:
+    print("olmadı!")
