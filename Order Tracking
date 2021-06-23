@@ -1,0 +1,1333 @@
+import sqlite3
+import tkinter as tk
+import itertools
+import datetime as dt
+import PIL
+from PIL import ImageTk
+from tkinter.ttk import *
+from tkinter import *
+from tkinter import messagebox
+from openpyxl import load_workbook
+from functools import partial
+
+root = tk.Tk()
+
+
+def dosyayaz():
+    db = sqlite3.connect("db.sqlite")
+    imlec = db.cursor()
+
+    imlec.execute("CREATE TABLE IF NOT EXISTS stok (skod,ad,tur,adet,fyt)")
+    imlec.execute("CREATE TABLE IF NOT EXISTS siparis (sipkod,masa,trh,saat,skod,ad,adet,pym,isk,ttr)")
+    imlec.execute("CREATE TABLE IF NOT EXISTS gunsonu (makkod,masa,trh,saat, malz, malzad, adet,pym,isk,ttr)")
+    imlec.execute("CREATE TABLE IF NOT EXISTS arsiv (makkod, masa,trh,saat,malz, malzad, adet,pym,isk,ttr)")
+    imlec.execute("CREATE TABLE IF NOT EXISTS aktif (masa,skod,ad,adet,fyt)")
+    imlec.execute("CREATE TABLE IF NOT EXISTS tarh (yl,ay,gn,drm)")
+    imlec.execute("INSERT INTO tarh VALUES (?,?,?,?)", [2000, 1, 1, 0])
+    db.commit()
+    db.close()
+    messagebox.showinfo("Mesaj", "Dosyalar oluşturuldu/kontrol edildi!")
+drm=[]
+db = sqlite3.connect("db.sqlite")
+imlec = db.cursor()
+imlec.execute('SELECT * FROM tarh')
+tarh = imlec.fetchall()
+drmm = int(tarh[0][3])
+print(drmm)
+
+if drmm == 0:
+    trh = dt.datetime.today()
+    trh2 = dt.timedelta(days=8)
+    trh3 = trh2 + trh
+    drm.append([trh3.year, trh3.month, trh3.day, 1])
+    imlec.execute("DELETE from tarh")
+    for i in drm:
+        print(i)
+        imlec.execute("INSERT INTO tarh VALUES (?,?,?,?)", i)
+    db.commit()
+
+kont = dt.datetime(int(tarh[0][0]), int(tarh[0][1]), int(tarh[0][2]))
+date = dt.datetime.today()
+fark = kont - date
+print(fark)
+db.close()
+
+"""
+if fark.days>=0 and fark.days<=8:
+    pass
+else:
+    messagebox.showinfo("Mesaj!","Deneme Süresi Sona Ermiştir. Lütfen yazılım sağlayıcınızla irtibata geçin!")
+    exit(0)
+"""
+
+class Stok(object):
+
+    def anasayfa(self):
+        for i in root.winfo_children():
+            i.destroy()
+
+        root.title("Stok")
+        root.geometry("300x380")
+
+        def stokgor():
+            for i in root.winfo_children():
+                i.destroy()
+            root.title("Stok Gör")
+            root.geometry("530x675")
+            bosluky = tk.Label(text="")
+            bosluky.grid(row=1, column=0, rowspan=20, ipadx=2, ipady=400, sticky=N + E + W + S)
+            boslukx = tk.Label(text="")
+            boslukx.grid(row=0, column=0, columnspan=5, ipady=5, ipadx=200, sticky=N + E + W + S)
+            tv = Treeview(root)
+            tv.grid(sticky=N + S + W + E)
+            tv['columns'] = ('ad', 'tur', 'adet', 'fyt')
+            tv.heading("#0", text="Sipariş Kodu")
+            tv.column('#0', width=100)
+            tv.heading('ad', text="Ürün Adı")
+            tv.column('ad', width=100)
+            tv.heading('tur', text="Türü")
+            tv.column('tur', width=100)
+            tv.heading('adet', text="Adet")
+            tv.column('adet', width=100)
+            tv.heading('fyt', text="Fiyat")
+            tv.column('fyt', width=100)
+            tv.grid(row=1, column=1, rowspan=14)
+            bosluk1 = tk.Label(text="")
+            bosluk1.grid(row=0, column=2, ipadx=5, sticky=N + E + W + S)
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+            oku = imlec.execute('SELECT * FROM stok')
+
+            for i in oku:
+                tv.insert('', 'end', text=str(i[0]), values=(i[1], i[2], i[3], i[4]))
+            db.close()
+
+            butonap1 = tk.Button(text="Geri", command=self.anasayfa, font=("Helvetica", 15))
+            butonap1.grid(row=15, column=1, ipady=20, ipadx=30, sticky=N + E + W + S)
+
+        def stokexcel():
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+            oku = imlec.execute('SELECT * FROM stok')
+            wb = load_workbook("stok.xlsx")
+            ws = wb.active
+
+            for k in oku:
+                ws.append(k)
+
+            wb.save("stok.xlsx")
+            wb.close()
+            db.close()
+            messagebox.showinfo("Mesaj", "Stok bilgileri excel dosyasına yazıldı!")
+
+        def malzexcel():
+            kis = []
+            alt = []
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+
+            wb = load_workbook("malzeme.xlsx")
+            ws = wb.active
+
+            imlec.execute("delete from stok")
+
+            db.commit()
+
+            for satir in range(1, ws.max_row + 1):
+
+                for sutun in range(1, ws.max_column + 1):
+                    alt.append(ws.cell(satir, sutun).value)
+                kis.append(alt)
+                alt = []
+
+            for i in kis:
+                imlec.execute("INSERT INTO stok VALUES (?,?,?,?,?)", i)
+            db.commit()
+            db.close()
+            messagebox.showinfo("Mesaj", "Veriler Excel Dosyasından Alındı!")
+
+        selam = tk.Label(text="")
+        selam.grid(row=0, column=0, ipadx=10, ipady=100, rowspan=6, sticky=W + E + S + N)
+        selam2 = tk.Label(text="")
+        selam2.grid(row=0, column=1, ipadx=100, ipady=5, columnspan=3, sticky=N + E + W + S)
+        butons2 = tk.Button(text="Stok gör", command=stokgor, font=("Helvetica", 15))
+        butons2.grid(row=1, column=1, ipadx=40, ipady=20, sticky=W + E + S + N)
+        butons3 = tk.Button(text="Excel Çıktısı Al", command=stokexcel, font=("Helvetica", 15))
+        butons3.grid(row=2, column=1, ipadx=40, ipady=20, sticky=W + E + S + N)
+        butons4 = tk.Button(text="Excel'den veri Al", command=malzexcel, font=("Helvetica", 15))
+        butons4.grid(row=3, column=1, ipadx=40, ipady=20, sticky=W + E + S + N)
+        butons5 = tk.Button(text="Geri", command=enana, font=("Helvetica", 15))
+        butons5.grid(row=4, column=1, ipadx=40, ipady=20, sticky=W + E + S + N)
+
+class Masalar(object):
+    db = sqlite3.connect("db.sqlite")
+    imlec = db.cursor()
+    imlec.execute('SELECT * FROM stok')
+    sstok = imlec.fetchall()
+    db.close()
+    masat = []
+    aktf = list()
+    butsay = 30
+    sutun = 5
+    konum = [] * butsay
+    ekranmasa = ""
+    ttr = 0
+    odeme = "Nakit"
+    butonnmm = []
+    knm = []
+    mesa11 = ""
+    mesa22 = ""
+
+    def masayfa(self):
+        db = sqlite3.connect("db.sqlite")
+        imlec = db.cursor()
+        imlec.execute('SELECT * FROM aktif')
+        aktfms = imlec.fetchall()
+        db.close()
+        aktfmss = []
+        root.geometry("1000x700")
+
+        for hg in aktfms:
+            aktfmss.append(hg[0])
+
+        for i in root.winfo_children():
+            i.destroy()
+
+        root.title("Masalar")
+        # soldan sağa doğru üst boşluk
+
+        selam = tk.Label(text="").grid(row=0, column=1, columnspan=70, ipadx=1000, sticky=N + E + W + S)
+        # sol üstten aşağı doğru giden boşluk
+        selam2 = tk.Label(text="").grid(row=0, column=0, rowspan=30, ipadx=10, ipady=700, sticky=N + E + W + S)
+
+        sip1 = Treeview(root)
+        style = Style()
+        style.configure("Treeview", font=(None, 12))
+
+        sip1['columns'] = ('ad', 'adet', 'fyt', 'ttr')
+        sip1.heading("#0", text="No")
+        sip1.column('#0', width=40)
+        sip1.heading('ad', text="Ürün Adı")
+        sip1.column('ad', width=200)
+        sip1.heading('adet', text="Adet")
+        sip1.column('adet', width=50, anchor='center')
+        sip1.heading('fyt', text="Br. Fiyat")
+        sip1.column('fyt', width=50, anchor='center')
+        sip1.heading('ttr', text="Tutar")
+        sip1.column('ttr', width=100, anchor='center')
+        sip1.grid(row=1, column=1, columnspan=10, rowspan=10, sticky=N + E + W + S)
+
+        def boya(api, apj):
+            self.butonnmm[api][apj].config(bg='green')
+
+        def hesapal():
+            top = Toplevel()
+            top.title("Tahsilat")
+            top.geometry("660x200")
+
+            labelb1 = tk.Label(top)
+            labelb1.grid(row=0, column=0, rowspan=10, ipady=100, ipadx=5, sticky=N + E + W + S)
+            labelb2 = tk.Label(top)
+            labelb2.grid(row=0, columnspan=6, ipadx=100, ipady=2, sticky=N + E + W + S)
+
+            alinn = tk.Entry(top, font=("Helvetica", 12, "bold"), justify='center')
+            alinn.grid(row=3, column=2, ipadx=5, sticky=N + E + W + S)
+            alinn.insert(END, self.ttr)
+
+            label1 = tk.Label(top, text="Tutar:", font=("Helvetica", 10, "bold"), justify='center')
+            label1.grid(row=1, sticky=N + E + W + S, column=1)
+            label11 = tk.Label(top, text=str(self.ttr), font=("Helvetica", 10, "bold"), justify='center')
+            label11.grid(row=1, column=2, sticky=N + E + W + S)
+            labelll2 = tk.Label(top, text="Alınacak Tutar:", font=("Helvetica", 10, "bold"), justify='center')
+            labelll2.grid(row=3, column=1, sticky=N + E + W + S)
+            label3 = tk.Label(top, text="Ödeme Şekli:", font=("Helvetica", 10, "bold"), justify='center')
+            label3.grid(row=2, column=1, sticky=N + E + W + S)
+            labelb3 = tk.Label(top)
+            labelb3.grid(row=0, column=3, rowspan=5, ipadx=5, sticky=N + E + W + S)
+            label4 = tk.Label(top, text="İskonto Hesaplama:", font=("Helvetica", 10, "bold"), justify='center')
+            label4.grid(row=1, column=4, sticky=N + E + W + S)
+            label5 = tk.Label(top, text="İskonto(%):", font=("Helvetica", 10, "bold"), justify='center')
+            label5.grid(row=2, column=4, sticky=N + E + W + S)
+
+            # Ödeme şekli listesi oluşturuldu
+            def opmenu(value):
+                self.odeme = value
+
+            sekl = StringVar()
+            yontem = ["Nakit", "Kart"]
+            sekl.set("Nakit")
+            osekli = tk.OptionMenu(top, sekl, *yontem, command=opmenu)
+            osekli.config(font=('calibri', 15))
+            osekli['menu'].configure(font=('calibri', 15))
+
+            osekli.grid(row=2, column=2, columnspan=1, sticky=N + E + W + S)
+
+            def masakapat():
+                try:
+                    varr = float(alinn.get())
+                    if varr <= 0:
+                        messagebox.showinfo("Mesaj!", "Lütfen Sıfır(0)dan Büyük Sayı Girin!")
+                        top.destroy()
+                        return hesapal()
+                except:
+                    messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                    top.destroy()
+                    return hesapal()
+
+                date = dt.datetime.now()
+                trh = f"{date:%d.%b.%Y}"
+                saat = f"{date:%H:%M:%S}"
+                trhkd = f"{date:%d%m%y.}"
+                koo = []
+                kuu = []
+                for bvv in sip1.get_children():
+                    koo.append([sip1.item(bvv)['values'][0], sip1.item(bvv)['values'][1]])
+
+                for cadet in koo:
+                    for cstok in self.sstok:
+                        if cadet[0] == cstok[1]:
+                            kuu.append([str(cstok[0]), str(cadet[1]), str(cstok[1])])
+                tutar = float(self.ttr)
+                if tutar != 0:
+                    iskk = ((tutar - float(alinn.get())) / tutar) * 100
+                else:
+                    iskk = 0
+
+                db = sqlite3.connect("db.sqlite")
+                imlec = db.cursor()
+                imlec.execute('SELECT * FROM gunsonu')
+                gsonu = imlec.fetchall()
+                say = 0
+
+                for hjj in gsonu:
+                    hoo = hjj[0].split(".")
+                    ynn = int(hoo[1])
+                    if ynn > say:
+                        say = ynn
+                gkod = trhkd + str(say + 1)
+                sip = []
+                for urun in kuu:
+                    sip.append(
+                        [gkod, self.ekranmasa, trh, saat, urun[0], urun[2], urun[1], self.odeme, iskk, alinn.get()])
+
+                for jnn in sip:
+                    imlec.execute("INSERT INTO gunsonu VALUES (?,?,?,?,?,?,?,?,?,?)", jnn)
+
+                for ill in aktfms:
+                    if str(self.ekranmasa) == ill[0]:
+                        imlec.execute("delete from aktif where masa = (?)", ((ill[0]),))
+
+                gll = '''UPDATE stok 
+                        SET adet = ?
+                        WHERE ad = ?        
+                       '''
+                for gbb in sip:
+                    imlec.execute("SELECT * FROM stok WHERE ad = (?)", ((gbb[5]),))
+                    adet = imlec.fetchall()
+                    adt = int(adet[0][3]) - int(gbb[6])
+                    imlec.execute(gll, (adt, gbb[5]))
+
+                db.commit()
+                db.close()
+                top.destroy()
+                return self.masayfa()
+
+            def isk():
+                try:
+                    varr = int(iskon.get())
+                except:
+                    messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                    top.destroy()
+                    return hesapal()
+
+                hesap = (100 - int(iskon.get())) * int(self.ttr) / 100
+                label6 = tk.Label(top, text=str(hesap), font=("Helvetica", 12, "bold"), justify='center').grid(row=3,
+                                                                                                               column=5,
+                                                                                                               sticky=N + E + W + S)
+                alinn.delete(0, 'end')
+                alinn.insert(END, str(hesap))
+                return hesap
+
+            label6 = tk.Label(top, text="")
+            label6.grid(row=2, column=5, sticky=N + E + W + S)
+            buton = tk.Button(top, text="Hesapla", command=isk, font=("Helvetica", 12, "bold"), justify='center')
+            buton.grid(row=4, column=4, columnspan=2, sticky=N + E + W + S)
+            buton1 = tk.Button(top, text="Masa Kapat", command=masakapat, font=("Helvetica", 12, "bold"),
+                               justify='center')
+            buton1.grid(row=4, column=1, columnspan=2, sticky=N + E + W + S)
+
+            iskon = tk.Entry(top, font=("Helvetica", 12, "bold"), justify='center')
+            iskon.grid(row=2, column=5, sticky=N + E + W + S)
+
+        def aktfmasa(ayt):
+
+            self.ekranmasa = str(ayt)
+
+            selam = tk.Label(text="Masa:" + str(self.ekranmasa), font=("Helvetica", 14, "bold")).grid(row=0, column=1)
+            for uy in sip1.get_children():
+                sip1.delete(uy)
+
+            say = 1
+
+            if str(ayt) in aktfmss:
+                for ko in aktfms:
+                    if ko[0] == str(ayt):
+                        sip1.insert('', 'end', text=str(say),
+                                    values=(ko[2], ko[3], ko[4], str(int(ko[3]) * int(ko[4]))))
+                        say = say + 1
+
+            toplam = []
+            self.ttr = 0
+            for ffyt in sip1.get_children():
+                toplam.append(sip1.item(ffyt, 'values'))
+
+            for ff in toplam:
+                self.ttr = int(ff[3]) + self.ttr
+            selam4 = tk.Label(text="Toplam Tutar:" + str(self.ttr), font=("Helvetica", 10)).grid(row=11, column=9)
+
+        def sipekle():
+
+            if self.ekranmasa == "":
+                messagebox.showinfo("Mesaj!", "Masa Seçiniz!")
+                return self.masayfa
+
+            for i in root.winfo_children():
+                i.destroy()
+
+            root.title("Sipariş Ekle")
+            root.geometry("1100x700")
+
+            turlrr = []
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+            imlec.execute('SELECT * FROM stok')
+            turler = imlec.fetchall()
+            db.close()
+            for hhj in turler:
+                turlrr.append(hhj[2])
+            # Tür isimleri ayıklanıp sıralandıktan sonra listeye aktarılıyor.
+            turlr = list(k for k, _ in itertools.groupby(sorted(turlrr)))
+
+            yuksek = root.winfo_height()
+            yuksek = yuksek - 300
+
+            bosluk0 = tk.Label(text="").grid(row=0, column=0, ipady=yuksek, ipadx=5, rowspan=30)
+            bosluk2 = tk.Label(text="").grid(row=0, column=2, ipadx=5, rowspan=10)
+            sip2 = Treeview(root)
+            sip2.grid(sticky=N + E + W + S)
+            sip2['columns'] = ('ad', 'adet', 'tur', 'fyt')
+            sip2.heading("#0", text="No")
+            sip2.column('#0', width=30, anchor='center')
+            sip2.heading('ad', text="Ürün Adı")
+            sip2.column('ad', width=180, anchor='w')
+            sip2.heading('adet', text="Stok")
+            sip2.column('adet', width=40, anchor='center')
+            sip2.heading('tur', text="Tür")
+            sip2.column('tur', width=80, anchor='center')
+            sip2.heading('fyt', text="Br. Fiyat")
+            sip2.column('fyt', width=50, anchor='center')
+            sip2.grid(row=1, column=3, columnspan=1, rowspan=15)
+            bosluk4 = tk.Label(text="").grid(row=0, column=4, ipadx=5, rowspan=10)
+            bosluk6 = tk.Label(text="").grid(row=0, column=6, ipadx=5, rowspan=10)
+            sip3 = Treeview(root)
+            sip3.grid(sticky=N + E + W + S)
+            sip3['columns'] = ('ad', 'adet', 'fyt', 'ttr')
+            sip3.heading("#0", text="No")
+            sip3.column('#0', width=30, anchor='center')
+            sip3.heading('ad', text="Ürün Adı")
+            sip3.column('ad', width=180, anchor='w')
+            sip3.heading('adet', text="Adet")
+            sip3.column('adet', width=40, anchor='center')
+            sip3.heading('fyt', text="Br. Fyt")
+            sip3.column('fyt', width=40, anchor='center')
+            sip3.heading('ttr', text="Tutar")
+            sip3.column('ttr', width=40, anchor='center')
+            sip3.grid(row=1, column=7, columnspan=1, rowspan=15)
+            bosluk8 = tk.Label(text="").grid(row=0, column=8, ipadx=5, rowspan=10)
+
+            say = 1
+            for hgg in aktfms:
+                if self.ekranmasa == hgg[0]:
+                    sip3.insert('', 'end', text=str(say),
+                                values=(hgg[2], hgg[3], hgg[4], str(int(hgg[3]) * int(hgg[4]))))
+                    say = say + 1
+
+            selam3 = tk.Label(text="Masa:" + str(self.ekranmasa)).grid(row=0, column=7)
+            selam = tk.Label(text="Ürün Listesi").grid(row=0, column=3)
+            selam2 = tk.Label(text="Türler").grid(row=0, column=1)
+
+            def tur(tur):
+                for uy in sip2.get_children():
+                    sip2.delete(uy)
+
+                sayy = 1
+                for ko in turler:
+                    if ko[2] == str(tur):
+                        sip2.insert('', 'end', text=str(sayy), values=(ko[1], ko[3], ko[2], ko[4]))
+                        sayy = sayy + 1
+
+                if str(tur) == "hepsi":
+                    for ko in turler:
+                        sip2.insert('', 'end', text=str(sayy), values=(ko[1], ko[3], ko[2], ko[4]))
+                        sayy = sayy + 1
+
+            def ekle():
+                sec = sip2.item(sip2.selection(), 'values')
+                adett = 0
+                try:
+                    adett = int(adet.get())
+                    if adett <= 0:
+                        messagebox.showinfo("Mesaj!", "Lütfen Sıfır(0)dan Büyük Sayı Girin!")
+                        return sipekle()
+                except:
+                    messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                    return sipekle()
+                for ko in self.sstok:
+                    if ko[1] == str(sec[0]):
+                        sip3.insert('', 'end', text="", values=(ko[1], adett, ko[4], ko[4] * int(adett)))
+
+            def cikar():
+                try:
+                    sip3.delete(sip3.selection())
+                except:
+                    pass
+
+            def temizle():
+                for gvv in sip3.get_children():
+                    sip3.delete(gvv)
+
+            def kaydet(masa):
+                tablo = []
+                db = sqlite3.connect("db.sqlite")
+                imlec = db.cursor()
+                imlec.execute('SELECT * FROM aktif')
+                aktfms = imlec.fetchall()
+                for ill in aktfms:
+                    if str(masa) == ill[0]:
+                        imlec.execute("delete from aktif where masa = (?)", ((ill[0]),))
+                # Masa listesi alındı
+                for gbb in sip3.get_children():
+                    tablo.append(sip3.item(gbb, 'values'))
+                yenims = []
+                # Stok kodları alındı.
+                for gga in tablo:
+                    for gaa in self.sstok:
+                        if gga[0] == gaa[1]:
+                            stkk1 = gaa[0]
+                            # db aktif verisine uygun hale getirildi
+                            yenims.append((masa, stkk1, gga[0], gga[1], gga[2]))
+                isimler = []
+                nisim = []
+                for bnn in yenims:
+                    isimler.append(str(bnn[2]))
+
+                isimle = list(k for k, _ in itertools.groupby(sorted(isimler)))
+
+                for vbb in isimle:
+                    adt = 0
+                    for vcc in yenims:
+                        if vbb == vcc[2]:
+                            adt = adt + int(vcc[3])
+                    nisim.append([vbb, adt])
+                sonms = []
+
+                for gha in nisim:
+                    drm = 0
+                    for ghb in yenims:
+                        if gha[0] == ghb[2] and drm == 0:
+                            sonms.append([masa, ghb[1], gha[0], gha[1], ghb[4]])
+                            drm = 1
+
+                for kll in sonms:
+                    imlec.execute("INSERT INTO aktif VALUES (?,?,?,?,?)", kll)
+
+                db.commit()
+                db.close()
+                messagebox.showinfo("Mesaj!", "Kaydedildi!")
+                return self.masayfa()
+
+            # Türlerin butonları kategorilere göre oluşturuluyor.
+            l = 0
+            for hj in turlr:
+                btn = tk.Button(text=str(hj), command=partial(tur, hj))
+                btn.grid(row=l + 1, column=1, ipadx=tusgen, ipady=tusboy, sticky=W + E + S + N)
+                l = l + 1
+            btn1 = tk.Button(text="Hepsi", command=partial(tur, "hepsi"))
+            btn1.grid(row=l, column=1, ipadx=tusgen, ipady=tusboy, sticky=W + E + S + N)
+            # -------------
+            btn2 = tk.Button(text="Ekle->", command=ekle)
+            btn2.grid(row=6, column=5, sticky=W + E + S + N)
+
+            baslk = tk.Label(text="Adet", font=('calibri', 15, 'bold')).grid(row=4, column=5)
+
+            adet = Entry(font=('calibri', 15, 'bold'), justify="center")
+            adet.grid(row=5, column=5, columnspan=1, ipady=10, ipadx=1, sticky=W + E + S + N)
+            adet.insert(END, str(1))
+
+            btn3 = tk.Button(text="<- Çıkar", command=cikar)
+            btn3.grid(row=7, column=5, sticky=W + E + S + N)
+
+            btn31 = tk.Button(text="Temizle", command=temizle)
+            btn31.grid(row=1, column=5, sticky=W + E + S + N)
+
+            btn4 = tk.Button(text="Geri", command=self.masayfa)
+            btn4.grid(row=2, column=5, sticky=W + E + S + N)
+
+            btn5 = tk.Button(text="Kaydet", command=partial(kaydet, self.ekranmasa))
+            btn5.grid(row=8, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+        def degistir():
+
+            def masa1f(value):
+                self.mesa11 = value
+
+            def masa2f(value):
+                self.mesa22 = value
+
+            def birlestir():
+                db = sqlite3.connect("db.sqlite")
+                imlec = db.cursor()
+                imlec.execute('SELECT * FROM aktif')
+                aktff = imlec.fetchall()
+                man1 = []
+                man2 = []
+                man3 = []
+                gbb = 0
+                for vbb in aktff:
+                    if str(self.mesa22) == str(vbb[0]):
+                        man1.append([str(self.mesa11), str(vbb[1]), str(vbb[2]), str(vbb[3]), str(vbb[4])])
+                        gbb = gbb + 1
+                    elif str(self.mesa11) == str(vbb[0]):
+                        man3.append(list(vbb))
+                    else:
+                        man2.append(list(vbb))
+
+                for ff in man3:
+                    man1.append(list(ff))
+
+                if gbb != 0:
+                    imlec.execute("delete from aktif")
+                    isimler = []
+                    nisim = []
+
+                    for bnn in man1:
+                        isimler.append(str(bnn[2]))
+
+                    isimle = list(k for k, _ in itertools.groupby(sorted(isimler)))
+
+                    for vbb in isimle:
+                        adt = 0
+                        for vcc in man1:
+                            if str(vbb) == str(vcc[2]):
+                                adt = adt + int(vcc[3])
+                        nisim.append([vbb, adt])
+
+                    sonms = []
+                    for gha in nisim:
+                        drm = 0
+                        for ghb in man1:
+                            if str(gha[0]) == str(ghb[2]) and drm == 0:
+                                sonms.append([str(self.mesa11), ghb[1], gha[0], gha[1], ghb[4]])
+                                drm = 1
+
+                    if man2 != []:
+                        for gg in man2:
+                            sonms.append(list(gg))
+
+                    for kll in sonms:
+                        imlec.execute("INSERT INTO aktif VALUES (?,?,?,?,?)", kll)
+                    messagebox.showinfo("Mesaj!", "Masalar Birleştirildi /Değiştirildi.")
+                    top2.destroy()
+                else:
+                    messagebox.showinfo("Mesaj", "İşlem Başarısız Oldu.")
+
+                db.commit()
+                db.close()
+                return self.masayfa()
+
+            top2 = Toplevel()
+            top2.title("Masa Birleştir/Değiştir")
+            top2.geometry("400x200")
+
+            msaa1 = []
+
+            for gg in self.konum:
+                msaa1.append(gg[0])
+
+            msaa2 = msaa1
+
+            seciniz = StringVar()
+            seciniz.set("Seçiniz")
+
+            seciniz2 = StringVar()
+            seciniz2.set("Seçiniz")
+
+            solboslk = tk.Label(top2, text="").grid(row=0, column=0, ipadx=10, ipady=50, rowspan=3,
+                                                    sticky=N + E + W + S)
+            ustboslk = tk.Label(top2, text="").grid(row=0, column=1, ipadx=100, ipady=10, columnspan=3,
+                                                    sticky=N + E + W + S)
+
+            degs1 = tk.Label(top2, text="Hedef Masa:", font=('calibri', 12))
+            degs1.grid(row=1, column=1, sticky=N + E + W + S)
+
+            birl1 = tk.Label(top2, text="2. Masa:", font=('calibri', 12))
+            birl1.grid(row=1, column=3, sticky=N + E + W + S)
+
+            masa1 = tk.OptionMenu(top2, seciniz, *msaa1, command=masa1f)
+            masa1.config(font=('calibri', 12))
+            masa1['menu'].configure(font=('calibri', 12))
+            masa1.grid(row=2, column=1, sticky=N + E + W + S)
+
+            masa2 = tk.OptionMenu(top2, seciniz2, *msaa2, command=masa2f)
+            masa2.config(font=('calibri', 12))
+            masa2['menu'].configure(font=('calibri', 12))
+            masa2.grid(row=2, column=3, sticky=N + E + W + S)
+
+            bslk = tk.Label(top2)
+            bslk.grid(row=2, column=6, ipadx=5, sticky=N + E + W + S)
+
+            birlestir = tk.Button(top2, text="Birleştir/\n  Değiştir", command=birlestir,
+                                  font=('calibri', 12))
+            birlestir.grid(row=2, column=7, ipadx=30, sticky=N + E + W + S)
+
+        def arahesap():
+            if self.ekranmasa == "":
+                messagebox.showinfo("Mesaj!", "Masa Seçiniz!")
+                return self.masayfa
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+            imlec.execute('SELECT * FROM aktif')
+            aktfms = imlec.fetchall()
+            db.close()
+
+            for i in root.winfo_children():
+                i.destroy()
+
+            root.title("Ara Hesap Al!")
+            root.geometry("1000x700")
+
+            # label3 = tk.Label(row=0, column=0, ipadx=5, ipady=100, sticky=N + W + E + S)
+            sip6 = Treeview(root)
+            sip6.grid(sticky=N + E + W + S)
+            sip6['columns'] = ('ad', 'adet', 'fyt', 'ttr')
+            sip6.heading("#0", text="No")
+            sip6.column('#0', width=30, anchor='center')
+            sip6.heading('ad', text="Ürün Adı")
+            sip6.column('ad', width=180, anchor='w')
+            sip6.heading('adet', text="Stok")
+            sip6.column('adet', width=40, anchor='center')
+            sip6.heading('fyt', text="Br. Fyt")
+            sip6.column('fyt', width=40, anchor='center')
+            sip6.heading('ttr', text="Tutar")
+            sip6.column('ttr', width=40, anchor='center')
+            sip6.grid(row=1, column=1, rowspan=20)
+
+            aalabel3 = tk.Label().grid(row=0, column=6, ipadx=5, sticky=N + W + E + S)
+            aalabel4 = tk.Label().grid(row=0, column=4, ipadx=5, sticky=N + W + E + S)
+
+            sip7 = Treeview(root)
+            sip7.grid(sticky=N + E + W + S)
+            sip7['columns'] = ('ad', 'adet', 'fyt', 'ttr')
+            sip7.heading("#0", text="No")
+            sip7.column('#0', width=30, anchor='center')
+            sip7.heading('ad', text="Ürün Adı")
+            sip7.column('ad', width=180, anchor='w')
+            sip7.heading('adet', text="Adet")
+            sip7.column('adet', width=40, anchor='center')
+            sip7.heading('fyt', text="Br. Fyt")
+            sip7.column('fyt', width=40, anchor='center')
+            sip7.heading('ttr', text="Tutar")
+            sip7.column('ttr', width=40, anchor='center')
+            sip7.grid(row=1, column=7, rowspan=20)
+
+            for uy in sip6.get_children():
+                sip6.delete(uy)
+            say = 1
+            for hgg in aktfms:
+                if self.ekranmasa == hgg[0]:
+                    sip6.insert('', 'end', text=str(say),
+                                values=(hgg[2], hgg[3], hgg[4], str(int(hgg[3]) * int(hgg[4]))))
+                    say = say + 1
+            selam3 = tk.Label(text="Ödeme Alınacak").grid(row=0, column=7, ipady=5)
+            selam8 = tk.Label(text="Masa:" + str(self.ekranmasa)).grid(row=0, column=1, ipady=5)
+            selam = tk.Label(text="").grid(row=0, column=1, ipadx=5, columnspan=10)
+            selam2 = tk.Label(text="").grid(row=0, column=0, ipadx=5, ipady=300, rowspan=30)
+
+            def ekle():
+                try:
+                    varr = int(adet.get())
+                    if varr <= 0:
+                        messagebox.showinfo("Mesaj!", "Lütfen Sıfır(0)dan Büyük Sayı Girin!")
+                        return arahesap()
+                except:
+                    messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                    return arahesap()
+
+                sec = sip6.item(sip6.selection(), 'values')
+                if sec == "":
+                    pass
+                else:
+                    adett = adet.get()
+                    for ko in self.sstok:
+                        if ko[1] == str(sec[0]):
+                            sip7.insert('', 'end', text="", values=(ko[1], adett, ko[4], ko[4] * int(adett)))
+                            kadet = int(sec[1]) - int(adett)
+                            sip6.delete(sip6.selection())
+                            if kadet != 0:
+                                sip6.insert('', 'end', text="",
+                                            values=(sec[0], str(kadet), sec[2], int(sec[2]) * kadet))
+
+            def cikar():
+                sec = sip7.item(sip7.selection(), 'values')
+                if sec == "":
+                    pass
+                else:
+                    adett = adet.get()
+                    for ko in self.sstok:
+                        if ko[1] == str(sec[0]):
+                            sip6.insert('', 'end', text="", values=(ko[1], adett, ko[4], ko[4] * int(adett)))
+                            sip7.delete(sip7.selection())
+
+            def temizle():
+                for gvv in sip7.get_children():
+                    sip7.delete(gvv)
+                say = 1
+                for hgg in aktfms:
+                    if self.ekranmasa == hgg[0]:
+                        sip6.insert('', 'end', text=str(say),
+                                    values=(hgg[2], hgg[3], hgg[4], str(int(hgg[3]) * int(hgg[4]))))
+                        say = say + 1
+
+            def kaydett(masa):
+                koo = []
+                kuu = []
+                sipo = []
+                sipadt = []
+                sipadt1 = []
+                val = []
+                top3 = Toplevel()
+                top3.title("Tahsilat")
+                top3.geometry("660x200")
+                tutar = 0
+
+                for bvv in sip7.get_children():
+                    sipo.append(sip7.item(bvv)['values'])
+
+                for ghh in sipo:
+                    sipadt.append(ghh[0])
+                sipadt1 = isimle = list(k for k, _ in itertools.groupby(sorted(sipadt)))
+                for gvv in sipadt1:
+                    adet = 0
+                    for ggg in sipo:
+                        if gvv == ggg[0]:
+                            adet =adet + ggg[1]
+                    koo.append([gvv, adet])
+
+                for ghh in koo:
+                    op = 0
+                    for gyy in sipo:
+                        if ghh[0] == gyy[0] and op == 0:
+                            val.append([gyy[0],ghh[1],gyy[2],gyy[3]])
+                            op = 1
+
+                for cadet in koo:
+                    for cstok in self.sstok:
+                        if cadet[0] == cstok[1]:
+                            kuu.append([str(cstok[0]), str(cadet[1]), str(cstok[1])])
+                            tutar = tutar + (int(cstok[4]) * cadet[1])
+
+                labelb1 = tk.Label(top3).grid(row=0, column=0, rowspan=10, ipady=100, ipadx=5, sticky=N + E + W + S)
+                labelb2 = tk.Label(top3).grid(row=0, columnspan=6, ipadx=100, ipady=2, sticky=N + E + W + S)
+
+                alinn = tk.Entry(top3, font=("Helvetica", 12, "bold"), justify='center')
+                alinn.grid(row=3, column=2, ipadx=5, sticky=N + E + W + S)
+                alinn.insert(END, tutar)
+
+                label1 = tk.Label(top3, text="Tutar:", font=("Helvetica", 10, "bold"), justify='center').grid(row=1,
+                                                                                                              column=1,
+                                                                                                              sticky=N + E + W + S)
+                label11 = tk.Label(top3, text=str(tutar), font=("Helvetica", 10, "bold"), justify='center').grid(
+                    row=1, column=2, sticky=N + E + W + S)
+                labelll2 = tk.Label(top3, text="Alınacak Tutar:", font=("Helvetica", 10, "bold"),
+                                    justify='center').grid(
+                    row=3, column=1, sticky=N + E + W + S)
+                label3 = tk.Label(top3, text="Ödeme Şekli:", font=("Helvetica", 10, "bold"), justify='center').grid(
+                    row=2, column=1, sticky=N + E + W + S)
+                labelb3 = tk.Label(top3).grid(row=0, column=3, rowspan=5, ipadx=5, sticky=N + E + W + S)
+                label4 = tk.Label(top3, text="İskonto Hesaplama:", font=("Helvetica", 10, "bold"),
+                                  justify='center').grid(row=1, column=4, sticky=N + E + W + S)
+                label5 = tk.Label(top3, text="İskonto(%):", font=("Helvetica", 10, "bold"), justify='center').grid(
+                    row=2,
+                    column=4,
+                    sticky=N + E + W + S)
+                label5 = tk.Label(top3, text="İskontolu Tutar:", font=("Helvetica", 10, "bold"), justify='center').grid(
+                    row=3, column=4, sticky=N + E + W + S)
+
+                # Ödeme şekli listesi oluşturuldu
+                def opmenu(value):
+                    self.odeme = value
+
+                sekl = StringVar()
+                yontem = ["Nakit", "Kart"]
+                sekl.set("Nakit")
+                osekli = tk.OptionMenu(top3, sekl, *yontem, command=opmenu)
+                osekli.config(font=('calibri', 15))
+                osekli['menu'].configure(font=('calibri', 15))
+
+                osekli.grid(row=2, column=2, sticky=N + E + W + S)
+
+                def isko():
+                    if iskk.get() == "sahibinkim":
+                        messagebox.showinfo("Merhaba", "Mekan: Hiç Bar\n"
+                                                       "Yer: Alsancak-İzmir\n"
+                                                       "Tarih: 9.9.2020 ")
+                        return hesapal()
+
+                    try:
+                        varr = float(iskk.get())
+                        if varr <= 0:
+                            messagebox.showinfo("Mesaj!", "Lütfen Sıfır(0)dan Büyük Sayı Girin!")
+                            top3.destroy()
+                            return hesapal()
+                    except:
+                        messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                        top3.destroy()
+                        return hesapal()
+                    isttr = float(tutar) * (1 - (float(iskk.get()) / 100))
+                    label6 = tk.Label(top3, text=str(isttr), font=("Helvetica", 10, "bold"), justify='center').grid(
+                        row=3, column=5)
+                    alinn.delete(0, 'end')
+                    alinn.insert(END, str(isttr))
+
+                def arahesapp():
+                    try:
+                        varr = float(alinn.get())
+                        if varr <= 0:
+                            messagebox.showinfo("Mesaj!", "Lütfen Sıfır(0)dan Büyük Sayı Girin!")
+                            top3.destroy()
+                            return kaydett(self.ekranmasa)
+                    except:
+                        messagebox.showinfo("Mesaj!", "Lütfen Sayı Değeri Girin!")
+                        top3.destroy()
+                        return kaydett(self.ekranmasa)
+
+                    date = dt.datetime.now()
+                    trh = f"{date:%d.%b.%Y}"
+                    saat = f"{date:%H:%M:%S}"
+                    trhkd = f"{date:%d%m%y.}"
+                    if tutar != 0:
+                        iskont = ((tutar - float(alinn.get())) / tutar) * 100
+                    else:
+                        iskont = 0
+                    db = sqlite3.connect("db.sqlite")
+                    imlec = db.cursor()
+                    imlec.execute('SELECT * FROM gunsonu')
+                    gsonu = imlec.fetchall()
+                    #Sipariş Numarası oluşturuldu.
+                    say = 0
+                    for hjj in gsonu:
+                        hoo = hjj[0].split(".")
+                        ynn = int(hoo[1])
+                        if ynn > say:
+                            say = ynn
+                    gkod = trhkd + str(say + 1)
+                    #----------
+                    sip = []
+
+                    for urun in kuu:
+                        sip.append(
+                            [gkod, self.ekranmasa, trh, saat, urun[0], urun[2], urun[1], self.odeme, iskont,
+                             alinn.get()])
+
+                    for jnn in sip:
+                        imlec.execute("INSERT INTO gunsonu VALUES (?,?,?,?,?,?,?,?,?,?)", jnn)
+                    # aktif masa verisi güncelleme
+                    hll = '''UPDATE aktif 
+                                           SET adet = ?
+                                           WHERE masa = ? AND ad = ?        
+                                          '''
+                    # Stok bilgisini db ye kaydet.
+                    gll = '''UPDATE stok 
+                                           SET adet = ?
+                                           WHERE ad = ?        
+                                          '''
+                    imlec.execute("SELECT * from aktif where masa = (?)", (self.ekranmasa,))
+                    akadat = imlec.fetchall()
+
+                    for nhh in val:
+                        op = 0
+                        for jjk in akadat:
+                            if str(jjk[2]) == str(nhh[0]) and op == 0:
+                                aaddet = int(jjk[3]) - int(nhh[1])
+                                op = 1
+                                if aaddet > 0:
+                                    imlec.execute(hll, (str(aaddet), jjk[0], jjk[2]))
+                                else:
+                                    for inn in aktfms:
+                                        if str(self.ekranmasa) == inn[0]:
+                                            imlec.execute("delete from aktif where masa = (?) AND ad =(?)",
+                                                          (inn[0], jjk[2]))
+                    for gbb in sip:
+                        imlec.execute("SELECT * FROM stok WHERE ad = (?)", ((gbb[5]),))
+                        adet = imlec.fetchall()
+                        adt = int(adet[0][3]) - int(gbb[6])
+                        imlec.execute(gll, (adt, gbb[5]))
+
+                    # ----------------------------
+                    db.commit()
+                    db.close()
+                    top3.destroy()
+                    return arahesap()
+
+                label6 = tk.Label(top3, text="").grid(row=2, column=5, sticky=N + E + W + S)
+                buton = tk.Button(top3, text="Hesapla", command=isko, font=("Helvetica", 12, "bold"),
+                                  justify='center').grid(row=4, column=4, columnspan=2, sticky=N + E + W + S)
+                buton1 = tk.Button(top3, text="Ara Hesap Al", command=arahesapp, font=("Helvetica", 12, "bold"),
+                                   justify='center').grid(row=4, column=1, columnspan=2, sticky=N + E + W + S)
+
+                iskk = tk.Entry(top3, font=("Helvetica", 12, "bold"), justify='center')
+                iskk.grid(row=2, column=5, sticky=N + E + W + S)
+
+            # -------------
+            btn2 = tk.Button(text="Ekle->", command=ekle)
+            btn2.grid(row=6, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+            baslk = tk.Label(text="Adet", font=('calibri', 15, 'bold')).grid(row=4, column=5)
+
+            adet = Entry(font=('calibri', 15, 'bold'), justify="center")
+            adet.grid(row=5, column=5, columnspan=1, ipady=10, ipadx=1, sticky=W + E + S + N)
+            adet.insert(END, str(1))
+
+            btn3 = tk.Button(text="<- Çıkar", command=cikar)
+            btn3.grid(row=7, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+            btn31 = tk.Button(text="Temizle", command=temizle)
+            btn31.grid(row=1, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+            btn4 = tk.Button(text="Geri", command=self.masayfa)
+            btn4.grid(row=2, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+            btn5 = tk.Button(text="Ara Hesap Al", command=partial(kaydett, self.ekranmasa))
+            btn5.grid(row=8, column=5, ipady=tusboy, sticky=W + E + S + N)
+
+        # ------- Ara Hesap Sonu -------
+        # en sağ boşluk
+        label = tk.Label(text="").grid(row=0, column=30, rowspan=50, ipady=100, ipadx=20,
+                                       sticky=N + E + W + S)
+        butonmmm11 = tk.Button(text="Sipariş Ekle", command=sipekle).grid(row=1, column=18, sticky=N + E + W + S)
+        butonmmm12 = tk.Button(text="Geri", command=enana).grid(row=5, column=18, sticky=N + E + W + S)
+        butonmmm12 = tk.Button(text="Ara Hesap Al", command=arahesap).grid(row=2, column=18, sticky=N + E + W + S)
+        butonmmm13 = tk.Button(text="Hesap Al", command=hesapal).grid(row=3, column=18, sticky=N + W + E + S)
+        butonmmm14 = tk.Button(text="Masa Değiştir/Birleştir", command=degistir).grid(row=4, column=18,
+                                                                                      sticky=N + W + E + S)
+
+        # Masa butonları oluşturulup isimlendiriliyor.
+
+        satir = self.butsay / self.sutun
+        h = 0
+        k = 0
+        tusgen = 15
+        tusboy = 10
+        hmax = 0
+        gmax = 0
+        kmax = 0
+        # liste ile butonlar arası boşluk
+        label2 = tk.Label(text="").grid(row=0, column=11, rowspan=50, ipadx=10, sticky=N + E + W + S)
+        self.butonnmm = []
+        self.konum = []
+        for hi in range(12, 12 + self.sutun):
+            g = 0
+            butnm2 = list()
+            for hj in range(1, int(satir) + 1):
+                btn = tk.Button(text="Masa:" + str(h + 1), command=partial(aktfmasa, h + 1))
+                btn.grid(row=hj, column=hi, sticky=W + E + S + N)
+                knm = [h + 1, k, g]
+                h = h + 1
+                g = g + 1
+                butnm2.append(btn)
+                self.konum.append(knm)
+                if h > hmax:
+                    hmax = h
+                if g > gmax:
+                    gmax = g
+            self.butonnmm.append(butnm2)
+
+            k = k + 1
+            if k > kmax:
+                kmax = k
+
+        # Aktif masa numaraları yeşile boyanıyor
+        for hjjj in aktfmss:
+            for hiii in range(self.butsay):
+                if str(hjjj) == str(self.konum[hiii][0]):
+                    boya(self.konum[hiii][1], self.konum[hiii][2])
+        aktfmasa(self.ekranmasa)
+
+class Gunsonu(object):
+    def Anasayfa(self):
+        db = sqlite3.connect("db.sqlite")
+        imlec = db.cursor()
+        imlec.execute('SELECT * FROM gunsonu')
+        gunsonnu = imlec.fetchall()
+        imlec.execute('SELECT * FROM aktif')
+        aktttff = imlec.fetchall()
+        imlec.execute('SELECT * FROM stok')
+        stokk = imlec.fetchall()
+        db.close()
+        tgen = 20
+        tyuk = 20
+
+        def onay():
+            if aktttff != []:
+                messagebox.showinfo("Mesaj", "Aktif Masa Var.")
+                return self.Anasayfa()
+
+            top1 = Toplevel()
+            top1.title("Günsonu Onayı")
+            top1.geometry("350x180")
+            lablb1 = tk.Label(top1).grid(row=0, column=0, ipadx=5, sticky=N + E + W + S)
+            lablb2 = tk.Label(top1).grid(row=0, column=1, ipady=3, sticky=N + E + W + S)
+
+            label = tk.Label(top1, text="Günsonu verileri arşive kaldırılacak.", font=("Helvetica", 10, "bold"),
+                             justify='center').grid(row=1, column=1, columnspan=3)
+            lablb3 = tk.Label(top1).grid(row=0, column=2, ipadx=5, sticky=N + E + W + S)
+
+            label1 = tk.Label(top1, text="Emin misiniz?", font=("Helvetica", 10, "bold"), justify='center').grid(row=2,
+                                                                                                                 column=1,
+                                                                                                                 columnspan=3)
+
+            buton1 = tk.Button(top1, text="Evet", command=gunsonal, font=("Helvetica", 12, "bold"),
+                               justify='center').grid(row=5, column=1, ipady=20, ipadx=50, sticky=N + E + W + S)
+            lablb4 = tk.Label(top1).grid(row=0, column=5, ipadx=5, sticky=N + E + W + S)
+            lablb5 = tk.Label(top1).grid(row=4, column=0, ipadx=5, sticky=N + E + W + S)
+            buton2 = tk.Button(top1, text="Hayır", command=self.Anasayfa, font=("Helvetica", 12, "bold"),
+                               justify='center').grid(row=5, column=3, ipady=20, ipadx=50, sticky=N + E + W + S)
+
+        def gunsonal():
+
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+
+            for jnn in gunsonnu:
+                imlec.execute("INSERT INTO arsiv VALUES (?,?,?,?,?,?,?,?,?,?)", jnn)
+
+                imlec.execute("delete from gunsonu")
+
+            db.commit()
+            db.close()
+            messagebox.showinfo("Mesaj!", "Arşive Alındı!")
+            return self.Anasayfa()
+
+        def arsivbk():
+            db = sqlite3.connect("db.sqlite")
+            imlec = db.cursor()
+            imlec.execute('SELECT * FROM arsiv')
+            arsivv = imlec.fetchall()
+            db.close()
+
+            for i in root.winfo_children():
+                i.destroy()
+            root.title("Arşiv")
+
+            label = tk.Label(text="").grid(row=0, column=0, columnspan=5, ipadx=50, ipady=10, sticky=W + E + S + N)
+            label1 = tk.Label(text="").grid(row=1, column=0, ipadx=10, ipady=50, sticky=E + W + S + N)
+            sip6 = Treeview(root)
+            sip6.grid(sticky=N + E + W + S)
+            sip6['columns'] = ('makkod', 'masa', 'trh', 'saat', 'malz', 'malzad', 'adet', 'pym', 'isk', 'ttr')
+            sip6.heading("#0", text="No")
+            sip6.column('#0', width=50)
+
+            sip6.heading('makkod', text="Sip. Kodu")
+            sip6.column('makkod', width=100)
+            sip6.heading('masa', text="Masa No:")
+            sip6.column('masa', width=50)
+            sip6.heading('trh', text="Tarih:")
+            sip6.column('trh', width=80)
+            sip6.heading('saat', text="Saat:")
+            sip6.column('saat', width=80)
+            sip6.heading('malz', text="Stok No:")
+            sip6.column('malz', width=100)
+            sip6.heading('malzad', text="Ürün Adı")
+            sip6.column('malzad', width=100)
+            sip6.heading('adet', text="Adet")
+            sip6.column('adet', width=100)
+            sip6.heading('pym', text="Ödeme Yön.")
+            sip6.column('pym', width=100)
+            sip6.heading('isk', text="İskonto(%)")
+            sip6.column('isk', width=100)
+            sip6.heading('ttr', text="Tutar")
+            sip6.column('ttr', width=100)
+
+            sip6.grid(row=1, column=1, ipady=root.winfo_height() - 550, columnspan=1, rowspan=1)
+            for huu in sip6.get_children():
+                sip6.delete(sip6.item(huu))
+            say = 0
+            for hjj in arsivv:
+                say = say + 1
+                sip6.insert('', 'end', text=str(say), values=(hjj))
+            buton = tk.Button(text="Geri", command=masaustu).grid(row=2, column=1, ipadx=50, ipady=50,
+                                                                  sticky=W + E + S + N)
+
+        def gunsonay():
+            for i in root.winfo_children():
+                i.destroy()
+
+            label = tk.Label(text="").grid(row=0, column=0, columnspan=5, ipadx=50, ipady=10, sticky=W + E + S + N)
+            label1 = tk.Label(text="").grid(row=1, column=0, ipadx=10, ipady=50, sticky=E + W + S + N)
+            sip5 = Treeview(root)
+            sip5.grid(sticky=N + E + W + S)
+            sip5['columns'] = ('makkod', 'masa', 'trh', 'saat', 'malz', 'malzad', 'adet', 'pym', 'isk', 'ttr')
+            sip5.heading("#0", text="No")
+            sip5.column('#0', width=50)
+
+            sip5.heading('makkod', text="Sip. Kodu")
+            sip5.column('makkod', width=100)
+            sip5.heading('masa', text="Masa No:")
+            sip5.column('masa', width=50)
+            sip5.heading('trh', text="Tarih:")
+            sip5.column('trh', width=80)
+            sip5.heading('saat', text="Saat:")
+            sip5.column('saat', width=80)
+            sip5.heading('malz', text="Stok No:")
+            sip5.column('malz', width=100)
+            sip5.heading('malzad', text="Ürün Adı")
+            sip5.column('malzad', width=100)
+            sip5.heading('adet', text="Adet")
+            sip5.column('adet', width=100)
+            sip5.heading('pym', text="Ödeme Yön.")
+            sip5.column('pym', width=100)
+            sip5.heading('isk', text="İskonto(%)")
+            sip5.column('isk', width=100)
+            sip5.heading('ttr', text="Tutar")
+            sip5.column('ttr', width=100)
+
+            sip5.grid(row=1, column=1, ipady=root.winfo_height() - 550, columnspan=1, rowspan=1)
+            for huu in sip5.get_children():
+                sip5.delete(sip5.item(huu))
+            say = 0
+            for hjj in gunsonnu:
+                say = say + 1
+                sip5.insert('', 'end', text=str(say), values=(hjj))
+            buton = tk.Button(text="Geri", command=masaustu).grid(row=2, column=1, ipadx=50, ipady=50,
+                                                                  sticky=W + E + S + N)
+
+        def masaustu():
+            for i in root.winfo_children():
+                i.destroy()
+            root.title("GünSonu")
+            root.geometry("1000x700")
+
+            def tablo():
+
+                sip4 = Treeview(root)
+                style = Style()
+                style.configure("Treeview", font=(None, 12))
+                sip4.grid(sticky=N + E + W + S)
+                sip4['columns'] = ('ad', 'adet')
+                sip4.heading("#0", text="No")
+                sip4.column('#0', width=40)
+                sip4.heading('ad', text="Ürün Adı")
+                sip4.column('ad', width=180, anchor='w')
+                sip4.heading('adet', text="Adet")
+                sip4.column('adet', width=50, anchor='center')
+                sip4.grid(row=1, column=4, columnspan=1, rowspan=5)
+
+                for huu in sip4.get_children():
+                    sip4.delete(sip4.item(huu))
+
+                adadet = []
+                for ill in gunsonnu:
+                    adadet.append([ill[5], ill[6]])
+                isimler = []
+                for bnn in adadet:
+                    isimler.append(str(bnn[0]))
+                isimle = list(k for k, _ in itertools.groupby(sorted(isimler)))
+                addadet = []
+                for vbb in isimle:
+                    adt = 0
+                    for vcc in adadet:
+                        if vbb == vcc[0]:
+                            adt = adt + int(vcc[1])
+                    addadet.append([vbb, adt])
+                say = 0
+                for ko in addadet:
+                    say = say + 1
+                    sip4.insert('', 'end', text=str(say), values=(ko[0], ko[1]))
+
+                sip = []
+                nkt = 0
+                kart = 0
+                for hll in gunsonnu:
+                    sip.append(hll[0])
+                sipp = list(k for k, _ in itertools.groupby(sorted(sip)))
+
+                for too in sipp:
+                    drm = 2
+                    for guu in gunsonnu:
+                        if too == guu[0] and drm == 2:
+                            if guu[7] == "Nakit":
+                                nkt = nkt + float(guu[9])
+                            if guu[7] == "Kart":
+                                kart = kart + float(guu[9])
+                            drm = 1
+
+                label1 = tk.Label(text="Nakit: " + str(nkt), font=("Helvetica", 15))
+                label1.grid(row=3, column=5, sticky=N + E + S + W)
+                label2 = tk.Label(text="Kart: " + str(kart), font=("Helvetica", 15))
+                label2.grid(row=2, column=5, sticky=N + E + S + W)
+                label3 = tk.Label(text="Toplam: " + str(kart + nkt), font=("Helvetica", 15))
+                label3.grid(row=4, column=5, sticky=N + E + S + W)
+
+            butoon1 = tk.Button(text="Günsonu Al", command=onay, font=('calibri', 15, 'bold'))
+            butoon1.grid(row=1, column=1, ipadx=tgen, ipady=tyuk, sticky=W + E + S + N)
+
+            butoon2 = tk.Button(text="Arşivi Gör", command=arsivbk, font=('calibri', 15, 'bold'))
+            butoon2.grid(row=2, column=1, ipadx=tgen, ipady=tyuk, sticky=W + E + S + N)
+
+            butoon3 = tk.Button(text="Ayrıntılı Günsonu", command=gunsonay, font=('calibri', 15, 'bold'))
+            butoon3.grid(row=3, column=1, ipadx=tgen, ipady=tyuk, sticky=W + E + S + N)
+
+            butoon4 = tk.Button(text="Geri", command=enana, font=('calibri', 15, 'bold'))
+            butoon4.grid(row=4, column=1, ipadx=tgen, ipady=tyuk, sticky=W + E + S + N)
+
+            label = tk.Label(text="")
+            label.grid(row=0, column=0, padx=0, pady=0, ipadx=10, ipady=100, rowspan=5, sticky=W + E + S + N)
+
+            tablo()
+
+        masaustu()
+
+masa = Masalar()
+stok = Stok()
+gunsonu = Gunsonu()
+
+def enana():
+    for i in root.winfo_children():
+        i.destroy()
+
+    root.title("Anasayfa")
+    root.geometry("580x350")
+    tgen = 50
+    tyuk = 20
+
+    label1 = tk.Label(text="").grid(row=0, column=0, ipadx=5, ipady=100, rowspan=10, sticky=N + E + W + S)
+    label2 = tk.Label(text="").grid(row=0, column=1, ipadx=100, ipady=1, sticky=N + E + W + S)
+
+    img = PIL.Image.open("hicc.gif")
+    img = img.resize((310, 310), )
+    photo = ImageTk.PhotoImage(img)
+    labell = tk.Label(image=photo)
+    labell.image = photo
+    labell.grid(row=1, column=2, rowspan=3, sticky=N + E + W + S)
+
+    buton1 = tk.Button(text="Masalar", command=masa.masayfa, font=("Helvetica", 15))
+    buton1.grid(row=1, column=1, ipadx=tgen, ipady=tyuk, sticky=N + E + W + S)
+
+    buton2 = tk.Button(text="Gün Sonu", command=gunsonu.Anasayfa, font=("Helvetica", 15))
+    buton2.grid(row=2, column=1, ipadx=tgen, ipady=tyuk, sticky=N + E + W + S)
+
+    buton3 = tk.Button(text="Stok", command=stok.anasayfa, font=("Helvetica", 15))
+    buton3.grid(row=3, column=1, ipadx=tgen, ipady=tyuk, sticky=N + E + W + S)
+
+enana()
+root.mainloop()
