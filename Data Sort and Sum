@@ -1,0 +1,165 @@
+import xlrd
+import xlsxwriter
+import os
+import os.path
+import tkinter as tk
+from openpyxl import load_workbook
+from tkinter import *
+from functools import partial
+
+print("Program Başı")
+root = tk.Tk()
+class islem(object):
+    def basla(self):
+        # iskontolu
+        list = []
+        kodlist = []
+        ulist = []
+        klm = []
+        k = 0
+        print("Dosya açılıyor.")
+        wc = load_workbook(filename="Kaynak.xlsx")
+        print("Sheet açılıyor")
+        sheet1 = wc.worksheets[0]
+        wcc = wc.active
+        # Excel dosyasında bulunan satırbilgilerini al
+        bsla = 2
+        row = sheet1.max_row
+        col = sheet1.max_column
+        for i in range(bsla, row-bsla):
+            rlst = []
+            for j in range(1, col):
+                a = sheet1.cell(i, j).value
+                rlst.append(a)
+            if None != rlst[1]:
+                list.append(rlst)
+
+        print("Ham Liste:")
+
+        for i in list:
+            print(i), '\n'
+
+        # Parça Kodlarını dosyaya geçir
+        for j in list:
+            kodlist.append(j[1])
+
+        # Eşsiz parça kodu listesini belirle
+        for v in kodlist:
+            for j in ulist:
+                if v == j:
+                    k = 1
+            if k == 0:
+                ulist.append(v)
+            k = 0
+        # Kodlu ürünleri adetlerini derle
+        t = []
+        print("Adet:",list[0][4], type(list[0][4]))
+        print("Adet:",int(list[0][4]), type(list[0][4]))
+        for gi in ulist:
+            adet = 0
+            for hi in list:
+                if gi == hi[1]:
+                    adet = adet + int(hi[4])
+                    print("kod1:", hi[1], type(hi[1]))
+                    print("kodU:", gi, type(gi))
+                    print("adet:", adet,type(adet))
+                    t = ["", gi, hi[2], hi[3], adet, (int(hi[5]) * (100 - int(hi[9]) / 100)),
+                         adet * (int(hi[5]) * (100 - int(hi[9]) / 100)), "", hi[8], int(hi[9]), hi[10], hi[11]]
+            klm.append(t)
+
+        # Toplam dosyasını excel e yazdır.
+        wbb = xlsxwriter.Workbook('Toplam.xlsx')
+        shet = wbb.add_worksheet('Sonuc')
+
+        for row_num, row_data in enumerate(klm):
+            for col_num, col_data in enumerate(row_data):
+                shet.write(row_num, col_num, col_data)
+
+        wbb.close()
+
+    def isksuz(self):
+        # iskontosuz
+        list = []
+        kodlist = []
+        ulist = []
+        klm = []
+        k = 0
+        #loc = os.path.join(Penc.vyol, Penc.vlist)
+        print("Dosya açılıyor.")
+        wd = wc = load_workbook(filename="Kaynak.xlsx")
+        print("Sheet açılıyor")
+        sheet2 = wd.worksheets[0]
+        wdd = wd.active
+        # Excel dosyasında bulunan satırbilgilerini al
+        bsla = 2
+        row = sheet2.max_row
+        col = sheet2.max_column
+        for i in range(bsla, row - bsla):
+            rlst = []
+            for j in range(1, col):
+                a = sheet2.cell(i, j).value
+                rlst.append(a)
+            if None != rlst[1]:
+                list.append(rlst)
+
+        print("Ham Liste:")
+        for i in list:
+            print(i), '\n'
+        # Parça Kodlarını dosyaya geçir
+        for j in list:
+            kodlist.append(j[1])
+
+        # Eşsiz parça kodu listesini belirle
+        for v in kodlist:
+            for j in ulist:
+                if v == j:
+                    k = 1
+            if k == 0:
+                ulist.append(v)
+            k = 0
+        print("Uniqe Liste:")
+        for i in ulist:
+            print(i), '\n'
+        # Kodlu ürünleri adetlerini derle
+        t = []
+        for gi in ulist:
+            adet = 0
+            for hi in list:
+                if gi == hi[1]:
+                    adet = adet + int(hi[4])
+                    print("kod1:", hi[1], type(hi[1]), "kodU:", gi, type(gi), "adet:", adet)
+                    t = ["", gi, hi[2], hi[3], adet]
+            klm.append(t)
+
+        # Toplam dosyasını excel e yazdır.
+        wbb = xlsxwriter.Workbook('Toplam.xlsx')
+        shet = wbb.add_worksheet('Sonuc')
+
+        for row_num, row_data in enumerate(klm):
+            for col_num, col_data in enumerate(row_data):
+                shet.write(row_num, col_num, col_data)
+
+        wbb.close()
+
+class Penc(object):
+    dlist = [""]
+    vlist = ""
+    vdyol = ""
+    vyol = ""
+    def anasayfa(self):
+        for i in root.winfo_children():
+            i.destroy()
+        root.title("Anasayfa")
+        root.geometry("200x200")
+
+        lbl = tk.Label(text="").grid(row=0, column=0)
+        buton = tk.Button(text="Fiyatlar ile birlikte", command=partial(islem.basla, self)).grid(row=1, column=1, sticky=NE + SW)
+        buton = tk.Button(text="Sadece Kod ve Adetler", command=partial(islem.isksuz, self)).grid(row=2, column=1, sticky=NE + SW)
+
+
+penc  = Penc()
+penc.anasayfa()
+root.mainloop()
+
+if __name__ == '__main__':
+    pass
