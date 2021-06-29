@@ -13,10 +13,9 @@ Senaryo: İstenilen şartların belirlendiği class yapısı(Örn: Boolinger'de 
 Karar: Senaryoda istenilen şartlar sağlandıktan sonra alınan sinyale göre AL kararının verilmesi ve Binance API üzerinden belirlenen miktarda alım emrinin sisteme girilmesi işlemlerinin yapıldığı class yapısı
 GUI: Arayüz tasarım ayrıntılarının olduğu class yapısı
 
-Program içerisinde "back test" ve istenilen şartlarda bulunan coinlerin aranması gibi özellikler de mevcut.
+Program içerisinde "back test" ve istenilen şartlarda bulunan coinlerin aranması gibi özellikler de mevcut. Program üzerinde çalışmaya devam etmekteyim.
 
-Aşağıda paylaştığım sadece "boolinger bantlarına" göre karar verip işleme alan kısmı yer almaktadır.
-
+Programın aslı 29.06.2021'de 6400 satır uzunluğundadır. Aşağıda paylaştığım sadece "boolinger bantlarına" göre karar verip işleme alan kısmı yer almaktadır.
 """
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceOrderException
