@@ -1,3 +1,8 @@
+"""
+TR-
+Programın amacı: Konfigürasyon programında hazırlanan kalemlerin belirli formatta alınan Excel çıktısının elemanlarının okunması, aynı elemanların derlenmesi ve fiyat bilgileri ile Excel formatında çıkış vermesi. 
+
+"""
 import xlrd
 import xlsxwriter
 import os
