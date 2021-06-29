@@ -1,3 +1,16 @@
+"""
+TR-
+Programın amacı: Küçük çaplı kafe ve barlar için adisyon, stok takibi, ciro takiplerinin yapılabilmesi.
+
+Program içerisinde SQL üzerinde Stok, aktif masa bilgileri, sipariş geçmişi bilgilerini barındırıyor. Firma tarafından hazırlanan stok listesinde ürün,satış fiyatı, stok adeti
+bilgileri kullanılarak masalara sipariş edilen ürün girişleri yapılıyor. Masadan ara hesap ve bütün hesabın ödenmesi, masa taşınması özellikleri ile ücreti alınan ürünlerin
+stoktan düşümü sağlanıp masa,gün,saat,sipariş,satış fiyatı,adet bilgileriyle depolanıyor. Hesap kısmında esnafın iskonto girişi yapmasına izin veriliyor.
+
+Programın özet kısmında gün sonunda yapılan toplam satışlar, kredi kartı ve nakit olarak alınan ödeme bilgileri bulunuyor. "Gün sonu al" butonu ile Gün bilgileri tarih bilgileri
+ile depolanarak yeni gün bilgileri için değerleri siliyor.
+
+Programın başında süreli abonelik özelliği eklemek için gerekli düzenlemeler mevcut. Sistem tarihi izin verilen tarihler arasında olmadığı takdirde programa erişime izin vermiyor.
+"""
 import sqlite3
 import tkinter as tk
 import itertools
